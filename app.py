@@ -84,7 +84,7 @@ def process_files(session_id):
                 if len(df) == 0:
                     continue
                 
-                # Step 3: Smart renaming logic
+                # Step 3: Rename logic
                 doc_types = df['Document Type Descrw'].value_counts()
                 invoice_count = doc_types.get('Invoice', 0)
                 credit_count = doc_types.get('Credit for Returns', 0)
@@ -114,11 +114,16 @@ def process_files(session_id):
                 storage_locs = df['Storage Location'].astype(str).dropna().unique()
                 location = location_map.get(storage_locs[0] if len(storage_locs) > 0 else 'Unknown', 'Unknown').title()
                 
-                # Convert date column to datetime
+                # Convert date column to datetime for filename
                 df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
                 dates = df[date_col].dropna().unique()
                 date_str = dates[0].strftime('%Y%m_%d') if len(dates) == 1 and pd.notna(dates[0]) else datetime.now().strftime('%Y%m_%d')
                 csv_filename = f"UKL_{location}{date_str}{suffix}.csv"
+                
+                # Format dates to DD/MM/YYYY for SAP compatibility
+                for dc in ['Invoice Date', 'Reference Doc Date']:
+                    if dc in df.columns:
+                        df[dc] = pd.to_datetime(df[dc], errors='coerce').dt.strftime('%d/%m/%Y')
                 
                 # Export to CSV without headers
                 csv_buffer = io.StringIO()
@@ -146,7 +151,7 @@ def process_files(session_id):
         return send_file(
             zip_buffer, 
             as_attachment=True, 
-            download_name=f'SAP_Data{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip', 
+            download_name=f'Processed_Files_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip', 
             mimetype='application/zip'
         )
     else:
