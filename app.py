@@ -1,4 +1,4 @@
-from asyncio.windows_events import NULL
+
 from flask import Flask, request, send_file, render_template, redirect, url_for
 import pandas as pd
 import io
@@ -148,9 +148,7 @@ def process_files(session_id):
                             print(f"Info: {invalid_mask.sum()} invalid dates in {dc} for {filename}; setting to empty (NULL)")
                         df[dc] = df[dc].dt.strftime('%Y-%m-%d').where(df[dc].notna(), '0')
                         df[dc] = df[dc].astype(str)  # None -> '' in CSV
-                
-                # FIXED: Export to CSV without quotes (QUOTE_NONE) to match successful format; na_rep='' for clean empties
-                # Note: QUOTE_NONE assumes no embedded commas; if fields have commas, they may break parsing
+                # Write to CSV in ZIP
                 csv_buffer = io.StringIO()
                 df.to_csv(csv_buffer, index=False, header=False, quoting=3, na_rep='')
                 csv_content = csv_buffer.getvalue().encode('utf-8')
