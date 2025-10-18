@@ -35,7 +35,7 @@ def upload():
         
         if preview:
             try:
-                df = pd.read_excel(filepath, engine='openpyxl', dtype={'Document Type': str})
+                df = pd.read_excel(filepath, engine='openpyxl', dtype={'Document Type Descrw': str})
                 preview_df = df.head(5).to_html(
                     classes='table table-striped table-hover table-sm', 
                     index=False, 
@@ -60,13 +60,19 @@ def process_files(session_id):
     
     zip_buffer = io.BytesIO()
     processed_files = 0
+    error_files = []
+    required_cols = ['Document Type Descrw', 'Storage Location', 'Sale_Qty_Pcs', 'Free_Total_Qty']
     
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for filename in files:
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
             try:
                 with open(filepath, 'rb') as f:
-                    df = pd.read_excel(f, engine='openpyxl', dtype={'Document Type': str})
+                    df = pd.read_excel(f, engine='openpyxl', dtype={'Document Type Descrw': str})
+                
+                missing_cols = [col for col in required_cols if col not in df.columns]
+                if missing_cols:
+                    raise ValueError(f"Missing required columns: {', '.join(missing_cols)}")
                 
                 # Step 1: Filter rows where both Sale_Qty_Pcs and Free_Total_Qty are 0
                 df['Sale_Qty_Pcs'] = pd.to_numeric(df['Sale_Qty_Pcs'], errors='coerce').fillna(0)
@@ -81,7 +87,24 @@ def process_files(session_id):
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
                 
+                # Standardize Salesrep Code (pad numeric codes to 3 digits with leading zeros)
+                if 'Salesrep Code' in df.columns:
+                    df['Salesrep Code'] = df['Salesrep Code'].astype(str)
+                    mask_numeric = df['Salesrep Code'].str.isdigit()
+                    df.loc[mask_numeric, 'Salesrep Code'] = df.loc[mask_numeric, 'Salesrep Code'].str.zfill(3)
+                
+                # Standardize Salesrep Name (trim extra spaces if present)
+                if 'Salesrep Name' in df.columns:
+                    df['Salesrep Name'] = df['Salesrep Name'].str.strip().str.replace(r'\s+', ' ', regex=True)
+                
+                # Pad LineNum to 2 digits (assuming column index 7 or named 'LineNum')
+                if len(df.columns) > 7:
+                    line_col = df.columns[7] if 'LineNum' not in df.columns else 'LineNum'
+                    if line_col in df.columns:
+                        df[line_col] = df[line_col].astype(str).str.zfill(2)
+                
                 if len(df) == 0:
+                    error_files.append(f"{filename}: No data after filtering")
                     continue
                 
                 # Step 3: Rename logic
@@ -98,48 +121,50 @@ def process_files(session_id):
                 
                 # Location mapping
                 location_map = {
-                    '15330599': 'lodwar',
-                    '15510868': 'kapsabet',
-                    '15393486': 'bomet',
-                    '50260522': 'nakuru',
-                    '50260577': 'savemore',
-                    '18010415': 'kisii',
-                    '50260971': 'molo',
-                    '15580524': 'naivasha',
-                    '18041985': 'rongo',
-                    '15580523': 'nyahururu',
-                    '15393485': 'kericho'
+                    '15330599': 'lodwar', '15510868': 'kapsabet', '15393486': 'bomet', '50260522': 'nakuru',
+                    '50260577': 'savemore', '18010415': 'kisii', '50260971': 'molo', '15580524': 'naivasha',
+                    '18041985': 'rongo', '15580523': 'nyahururu', '15393485': 'kericho'
                 }
                 
                 storage_locs = df['Storage Location'].astype(str).dropna().unique()
                 location = location_map.get(storage_locs[0] if len(storage_locs) > 0 else 'Unknown', 'Unknown').title()
                 
-                # Convert date column to datetime for filename
-                df[date_col] = pd.to_datetime(df[date_col], errors='coerce')
-                dates = df[date_col].dropna().unique()
-                date_str = dates[0].strftime('%Y%m_%d') if len(dates) == 1 and pd.notna(dates[0]) else datetime.now().strftime('%Y%m_%d')
+                # Convert date column to datetime for filename (with NaT handling)
+                df_temp = df[date_col].copy()
+                df_temp = pd.to_datetime(df_temp, errors='coerce')
+                dates = df_temp.dropna().unique()
+                if len(dates) > 1:
+                    print(f"Warning: Multiple dates detected in {filename}; using first: {dates[0]}")
+                date_str = dates[0].strftime('%Y%m%d') if len(dates) >= 1 and pd.notna(dates[0]) else datetime.now().strftime('%Y%m%d')
                 csv_filename = f"UKL_{location}{date_str}{suffix}.csv"
                 
-                # Format dates to DD/MM/YYYY for SAP compatibility
+                # FIXED: Format dates to YYYY-MM-DD (ISO) for SQL/SAP compatibility; invalids to empty
                 for dc in ['Invoice Date', 'Reference Doc Date']:
                     if dc in df.columns:
-                        df[dc] = pd.to_datetime(df[dc], errors='coerce').dt.strftime('%d/%m/%Y')
+                        df[dc] = pd.to_datetime(df[dc], errors='coerce', dayfirst=True)  # Handles DD/MM/YYYY input
+                        invalid_mask = df[dc].isna()
+                        if invalid_mask.sum() > 0:
+                            print(f"Info: {invalid_mask.sum()} invalid dates in {dc} for {filename}; setting to empty (NULL)")
+                        df[dc] = df[dc].dt.strftime('%Y-%m-%d').where(df[dc].notna(), None)
+                        df[dc] = df[dc].astype(str)  # None -> '' in CSV
                 
-                # Export to CSV without headers
+                # FIXED: Export to CSV without quotes (QUOTE_NONE) to match successful format; na_rep='' for clean empties
+                # Note: QUOTE_NONE assumes no embedded commas; if fields have commas, they may break parsing
                 csv_buffer = io.StringIO()
-                df.to_csv(csv_buffer, index=False, header=False, quoting=1)
+                df.to_csv(csv_buffer, index=False, header=False, quoting=3, na_rep='')
                 csv_content = csv_buffer.getvalue().encode('utf-8')
                 zip_file.writestr(csv_filename, csv_content)
                 processed_files += 1
                 
             except Exception as e:
                 print(f"Error processing {filename}: {str(e)}")
+                error_files.append(f"{filename}: {str(e)}")
                 continue
             finally:
                 if os.path.exists(filepath):
-                    os.remove(filepath)  # Clean up temp file
+                    os.remove(filepath)
     
-    # Clean up if folder empty
+    # Clean up
     if os.path.exists(app.config['UPLOAD_FOLDER']) and not os.listdir(app.config['UPLOAD_FOLDER']):
         try:
             os.rmdir(app.config['UPLOAD_FOLDER'])
@@ -147,15 +172,19 @@ def process_files(session_id):
             pass
     
     if processed_files > 0:
+        error_summary = "_with_warnings" if error_files else ""
         zip_buffer.seek(0)
         return send_file(
-            zip_buffer, 
-            as_attachment=True, 
-            download_name=f'Processed_Files_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip', 
+            zip_buffer,
+            as_attachment=True,
+            download_name=f'Processed_Files{error_summary}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip',
             mimetype='application/zip'
         )
     else:
-        return "No valid data found after processing", 400
+        error_msg = "No valid data found after processing."
+        if error_files:
+            error_msg += f" Errors: {'; '.join(error_files)}"
+        return error_msg, 400
 
 @app.errorhandler(413)
 def too_large(e):
