@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAP B1 Excel Processor</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --success-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            --card-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            --hover-transform: translateY(-5px);
+        }
+        
+        body {
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-card {
+            border: none;
+            border-radius: 20px;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+        }
+        
+        .main-card:hover {
+            transform: var(--hover-transform);
+        }
+        
+        .card-header {
+            background: var(--primary-gradient);
+            border-radius: 20px 20px 0 0 !important;
+            padding: 2rem;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: rgba(102, 126, 234, 0.05);
+            cursor: pointer;
+        }
+        
+        .upload-area:hover, .upload-area.dragover {
+            background: rgba(102, 126, 234, 0.1);
+            border-color: #764ba2;
+        }
+        
+        .upload-icon {
+            font-size: 4rem;
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .feature-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .feature-list li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .feature-list li:last-child {
+            border-bottom: none;
+        }
+        
+        .feature-list i {
+            color: #28a745;
+            margin-right: 0.5rem;
+        }
+        
+        .btn-primary {
+            background: var(--primary-gradient);
+            border: none;
+            padding: 12px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .file-list {
+            max-height: 200px;
+            overflow-y: auto;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 1rem;
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem;
+            border-radius: 5px;
+            margin-bottom: 0.5rem;
+            background: #f8f9fa;
+        }
+        
+        .file-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .file-icon {
+            color: #28a745;
+            margin-right: 0.5rem;
+        }
+        
+        .processing-steps {
+            counter-reset: step-counter;
+        }
+        
+        .processing-step {
+            position: relative;
+            padding-left: 3rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .processing-step:before {
+            counter-increment: step-counter;
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 2rem;
+            height: 2rem;
+            background: var(--primary-gradient);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .stats-card {
+            background: var(--success-gradient);
+            color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        
+        .stats-number {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+        }
+        
+        .loading-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5.5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="text-center text-white">
+            <div class="spinner mb-3"></div>
+            <h4>Processing Files...</h4>
+            <p>Please wait while we process your Excel files</p>
+        </div>
+    </div>
+
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <!-- Main Card -->
+                <div class="card main-card">
+                    <div class="card-header text-center text-white">
+                        <div class="row align-items-center">
+                            <div class="col-md-2 text-center">
+                                <i class="fas fa-file-excel fa-4x mb-3"></i>
+                            </div>
+                            <div class="col-md-10">
+                                <h1 class="display-6 fw-bold mb-3">SAP B1 Excel Processor</h1>
+                                <p class="lead mb-0">Automated Excel cleaning and CSV conversion for SAP Business One</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-body p-5">
+                        <!-- Upload Section -->
+                        <div class="row mb-5">
+                            <div class="col-md-6">
+                                <div class="upload-area" id="uploadArea">
+                                    <label for="fileInput" style="cursor: pointer; display: block;">
+                                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                                        <h4>Drag & Drop Files Here</h4>
+                                        <p class="text-muted">or click to browse</p>
+                                    </label>
+                                    <input type="file" class="d-none" id="fileInput" name="files" accept=".xlsx,.xls" multiple required>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <h5 class="fw-bold mb-3"><i class="fas fa-list-check me-2"></i>Processing Steps</h5>
+                                <div class="processing-steps">
+                                    <div class="processing-step">
+                                        <strong>Filter Zero Rows</strong>
+                                        <p class="text-muted mb-0">Remove rows where both Sale Qty and Free Qty are zero</p>
+                                    </div>
+                                    <div class="processing-step">
+                                        <strong>Clean Numeric Data</strong>
+                                        <p class="text-muted mb-0">Replace empty values with zeros in amount columns</p>
+                                    </div>
+                                    <div class="processing-step">
+                                        <strong>Smart Renaming</strong>
+                                        <p class="text-muted mb-0">Auto-generate filenames based on document type</p>
+                                    </div>
+                                    <div class="processing-step">
+                                        <strong>CSV Export</strong>
+                                        <p class="text-muted mb-0">Convert to header-less CSV for SAP B1</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- File List -->
+                        <div class="row mb-4" id="fileListSection" style="display: none;">
+                            <div class="col-12">
+                                <h5 class="fw-bold mb-3"><i class="fas fa-file me-2"></i>Selected Files</h5>
+                                <div class="file-list" id="fileList">
+                                    <!-- Files will be listed here -->
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Options & Stats -->
+                        <div class="row mb-4">
+                            <div class="col-md-8">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="previewToggle" name="preview" value="yes" checked>
+                                    <label class="form-check-label fw-bold" for="previewToggle">
+                                        <i class="fas fa-eye me-1"></i>Enable Preview Mode
+                                    </label>
+                                    <div class="form-text">Review file contents before processing</div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="stats-card">
+                                    <div class="stats-number" id="fileCount">0</div>
+                                    <div>Files Ready</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Submit Button -->
+                        <div class="row">
+                            <div class="col-12">
+                                <form method="post" enctype="multipart/form-data" id="uploadForm">
+                                    <div class="d-grid">
+                                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
+                                            <i class="fas fa-magic me-2"></i>Process Files & Download
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="card-footer bg-light text-muted">
+                        <div class="row">
+                            <div class="col-md-8">
+                                <small><i class="fas fa-shield-alt me-1"></i>Files are processed securely and automatically deleted after download</small>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <small><i class="fas fa-sync-alt me-1"></i>Supports batch processing</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileList = document.getElementById('fileList');
+        const fileListSection = document.getElementById('fileListSection');
+        const fileCount = document.getElementById('fileCount');
+        const submitBtn = document.getElementById('submitBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const loadingOverlay = document.getElementById('loadingOverlay');
+        const previewToggle = document.getElementById('previewToggle');
+
+        let currentFiles = [];
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        function handleFiles(files) {
+            if (files.length === 0) return;
+
+            currentFiles = Array.from(files).filter(file => 
+                file.name.match(/\.(xlsx|xls)$/i)
+            );
+
+            updateFileList();
+        }
+
+        function updateFileList() {
+            fileList.innerHTML = '';
+            
+            if (currentFiles.length === 0) {
+                fileListSection.style.display = 'none';
+                submitBtn.disabled = true;
+                fileCount.textContent = '0';
+                return;
+            }
+
+            currentFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div class="flex-grow-1">
+                        <i class="fas fa-file-excel file-icon"></i>
+                        <span>${file.name}</span>
+                    </div>
+                    <div class="text-muted">
+                        ${(file.size / 1024).toFixed(1)} KB
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="removeFile(${index})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+                fileList.appendChild(fileItem);
+            });
+
+            fileListSection.style.display = 'block';
+            fileCount.textContent = currentFiles.length;
+            submitBtn.disabled = false;
+        }
+
+        function removeFile(index) {
+            currentFiles.splice(index, 1);
+            updateFileList();
+        }
+
+        // Submit Handler
+        uploadForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (currentFiles.length === 0) {
+                alert('Please select at least one Excel file.');
+                return;
+            }
+
+            loadingOverlay.style.display = 'flex';
+            
+            const formData = new FormData();
+            currentFiles.forEach(file => {
+                formData.append('files', file);
+            });
+
+            if (previewToggle.checked) {
+                formData.append('preview', 'yes');
+            }
+
+            try {
+                const response = await fetch('/', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (response.ok) {
+                    if (previewToggle.checked) {
+                        const html = await response.text();
+                        document.open();
+                        document.write(html);
+                        document.close();
+                    } else {
+                        const timestamp = new Date().toISOString().slice(0, 19).replace(/[-:]/g, '').replace('T', '_');
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.style.display = 'none';
+                        a.href = url;
+                        a.download = `Processed_Files_${timestamp}.zip`;
+                        document.body.appendChild(a);
+                        a.click();
+                        window.URL.revokeObjectURL(url);
+                    }
+                } else {
+                    const errorText = await response.text();
+                    alert(`Error processing files: ${errorText}`);
+                }
+            } catch (error) {
+                alert('Error uploading files: ' + error.message);
+            } finally {
+                loadingOverlay.style.display = 'none';
+            }
+        });
+
+        // Add some animation on load
+        document.addEventListener('DOMContentLoaded', () => {
+            const card = document.querySelector('.main-card');
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s ease';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+</body>
+</html>
