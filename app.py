@@ -1,3 +1,4 @@
+from asyncio.windows_events import NULL
 from flask import Flask, request, send_file, render_template, redirect, url_for
 import pandas as pd
 import io
@@ -123,7 +124,7 @@ def process_files(session_id):
                 location_map = {
                     '15330599': 'lodwar', '15510868': 'kapsabet', '15393486': 'bomet', '50260522': 'nakuru',
                     '50260577': 'savemore', '18010415': 'kisii', '50260971': 'molo', '15580524': 'naivasha',
-                    '18041985': 'rongo', '15580523': 'nyahururu', '15393485': 'kericho'
+                    '18041985': 'rongo', '15580523': 'nyahururu', '15393485': 'kericho', '15510770': 'eldoret',
                 }
                 
                 storage_locs = df['Storage Location'].astype(str).dropna().unique()
@@ -145,7 +146,7 @@ def process_files(session_id):
                         invalid_mask = df[dc].isna()
                         if invalid_mask.sum() > 0:
                             print(f"Info: {invalid_mask.sum()} invalid dates in {dc} for {filename}; setting to empty (NULL)")
-                        df[dc] = df[dc].dt.strftime('%Y-%m-%d').where(df[dc].notna(), None)
+                        df[dc] = df[dc].dt.strftime('%Y-%m-%d').where(df[dc].notna(), NULL)
                         df[dc] = df[dc].astype(str)  # None -> '' in CSV
                 
                 # FIXED: Export to CSV without quotes (QUOTE_NONE) to match successful format; na_rep='' for clean empties
