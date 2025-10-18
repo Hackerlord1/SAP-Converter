@@ -146,7 +146,7 @@ def process_files(session_id):
                         invalid_mask = df[dc].isna()
                         if invalid_mask.sum() > 0:
                             print(f"Info: {invalid_mask.sum()} invalid dates in {dc} for {filename}; setting to empty (NULL)")
-                        df[dc] = df[dc].dt.strftime('%Y-%m-%d').where(df[dc].notna(), NULL)
+                        df[dc] = df[dc].dt.strftime('%Y-%m-%d').where(df[dc].notna(), '0')
                         df[dc] = df[dc].astype(str)  # None -> '' in CSV
                 
                 # FIXED: Export to CSV without quotes (QUOTE_NONE) to match successful format; na_rep='' for clean empties
