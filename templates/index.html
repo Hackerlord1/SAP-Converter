@@ -27,22 +27,32 @@
             transition: all 0.3s ease;
             background: rgba(255, 255, 255, 0.95);
             backdrop-filter: blur(10px);
+            transform: scale(0.85);  /* Zoom out: Scales entire card to 85% size – adjust to 0.8 for more zoom */
+            margin: 0 auto;          /* Centers the scaled card */
         }
         
         .main-card:hover {
-            transform: var(--hover-transform);
+            transform: scale(0.85) var(--hover-transform);  /* Keeps hover lift while scaled */
+        }
+        
+        .col-lg-10 {
+            padding: 0;  /* Reduces side padding for tighter fit */
         }
         
         .card-header {
             background: var(--primary-gradient);
             border-radius: 20px 20px 0 0 !important;
-            padding: 2rem;
+            padding: 1.5rem;  /* Reduced padding for smaller header */
+        }
+        
+        .card-body {
+            padding: 1.5rem !important;  /* Reduced internal padding for compact body */
         }
         
         .upload-area {
             border: 3px dashed #667eea;
             border-radius: 15px;
-            padding: 3rem 2rem;
+            padding: 1.5rem 1rem;  /* Smaller upload area */
             text-align: center;
             transition: all 0.3s ease;
             background: rgba(102, 126, 234, 0.05);
@@ -55,111 +65,40 @@
         }
         
         .upload-icon {
-            font-size: 4rem;
+            font-size: 3rem;  /* Slightly smaller icon */
             color: #667eea;
             margin-bottom: 1rem;
         }
         
-        .feature-list {
-            list-style: none;
-            padding: 0;
-        }
-        
-        .feature-list li {
-            padding: 0.5rem 0;
-            border-bottom: 1px solid #eee;
-        }
-        
-        .feature-list li:last-child {
-            border-bottom: none;
-        }
-        
-        .feature-list i {
-            color: #28a745;
-            margin-right: 0.5rem;
-        }
-        
-        .btn-primary {
-            background: var(--primary-gradient);
-            border: none;
-            padding: 12px 30px;
-            border-radius: 50px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-        }
-        
-        .btn-primary:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        /* Scale down fonts globally for more zoom-out feel */
+        .main-card h1, .main-card h4, .main-card h5 {
+            font-size: 0.9em;  /* 90% font size */
         }
         
         .file-list {
-            max-height: 200px;
+            max-height: 150px;  /* Smaller file list height */
             overflow-y: auto;
             border: 1px solid #eee;
             border-radius: 10px;
             padding: 1rem;
         }
         
-        .file-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.5rem;
-            border-radius: 5px;
-            margin-bottom: 0.5rem;
-            background: #f8f9fa;
-        }
-        
-        .file-item:last-child {
-            margin-bottom: 0;
-        }
-        
-        .file-icon {
-            color: #28a745;
-            margin-right: 0.5rem;
-        }
-        
-        .processing-steps {
-            counter-reset: step-counter;
-        }
-        
         .processing-step {
-            position: relative;
-            padding-left: 3rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .processing-step:before {
-            counter-increment: step-counter;
-            content: counter(step-counter);
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 2rem;
-            height: 2rem;
-            background: var(--primary-gradient);
-            color: white;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-        }
-        
-        .stats-card {
-            background: var(--success-gradient);
-            color: white;
-            border-radius: 15px;
-            padding: 1.5rem;
-            text-align: center;
+            padding-left: 2.5rem;  /* Slightly less left padding */
             margin-bottom: 1rem;
         }
         
+        .stats-card {
+            padding: 1rem;  /* Smaller stats card */
+        }
+        
         .stats-number {
-            font-size: 2rem;
-            font-weight: bold;
-            margin-bottom: 0.5rem;
+            font-size: 1.5rem;  /* Smaller number */
+        }
+        
+        .btn-primary {
+            padding: 10px 25px;  /* Smaller buttons */
+            font-size: 0.95em;
         }
         
         .loading-overlay {
@@ -176,10 +115,10 @@
         }
         
         .spinner {
-            width: 50px;
-            height: 50px;
-            border: 5px solid #f3f3f3;
-            border-top: 5.5px solid #667eea;
+            width: 40px;  /* Smaller spinner */
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
             border-radius: 50%;
             animation: spin 1s linear infinite;
         }
@@ -200,7 +139,7 @@
         </div>
     </div>
 
-    <div class="container py-5">
+    <div class="container py-3">  <!-- Reduced py-5 to py-3 for less top/bottom space -->
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <!-- Main Card -->
@@ -208,7 +147,7 @@
                     <div class="card-header text-center text-white">
                         <div class="row align-items-center">
                             <div class="col-md-2 text-center">
-                                <i class="fas fa-file-excel fa-4x mb-3"></i>
+                                <i class="fas fa-file-excel fa-3x mb-3"></i>  <!-- Smaller icon -->
                             </div>
                             <div class="col-md-10">
                                 <h1 class="display-6 fw-bold mb-3">SAP B1 Excel Processor</h1>
@@ -217,9 +156,9 @@
                         </div>
                     </div>
                     
-                    <div class="card-body p-5">
+                    <div class="card-body">
                         <!-- Upload Section -->
-                        <div class="row mb-5">
+                        <div class="row mb-4">  <!-- Reduced mb-5 to mb-4 -->
                             <div class="col-md-6">
                                 <div class="upload-area" id="uploadArea">
                                     <label for="fileInput" style="cursor: pointer; display: block;">
@@ -255,7 +194,7 @@
                         </div>
                         
                         <!-- File List -->
-                        <div class="row mb-4" id="fileListSection" style="display: none;">
+                        <div class="row mb-3" id="fileListSection" style="display: none;">  <!-- Reduced mb-4 to mb-3 -->
                             <div class="col-12">
                                 <h5 class="fw-bold mb-3"><i class="fas fa-file me-2"></i>Selected Files</h5>
                                 <div class="file-list" id="fileList">
@@ -265,7 +204,7 @@
                         </div>
                         
                         <!-- Options & Stats -->
-                        <div class="row mb-4">
+                        <div class="row mb-3">  <!-- Reduced mb-4 to mb-3 -->
                             <div class="col-md-8">
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" id="previewToggle" name="preview" value="yes" checked>
@@ -433,7 +372,7 @@
                         const a = document.createElement('a');
                         a.style.display = 'none';
                         a.href = url;
-                        a.download = `Processed_Files_${timestamp}.zip`;
+                        a.download = `SAP_DATA${timestamp}.zip`;
                         document.body.appendChild(a);
                         a.click();
                         window.URL.revokeObjectURL(url);
@@ -453,12 +392,12 @@
         document.addEventListener('DOMContentLoaded', () => {
             const card = document.querySelector('.main-card');
             card.style.opacity = '0';
-            card.style.transform = 'translateY(20px)';
+            card.style.transform = 'scale(0.85) translateY(20px)';
             
             setTimeout(() => {
                 card.style.transition = 'all 0.5s ease';
                 card.style.opacity = '1';
-                card.style.transform = 'translateY(0)';
+                card.style.transform = 'scale(0.85) translateY(0)';
             }, 100);
         });
     </script>
