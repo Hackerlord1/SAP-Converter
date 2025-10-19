@@ -139,15 +139,21 @@ def process_files(session_id):
                 date_str = dates[0].strftime('%Y%m%d') if len(dates) >= 1 and pd.notna(dates[0]) else datetime.now().strftime('%Y%m%d')
                 csv_filename = f"UKL_{location}{date_str}{suffix}.csv"
                 
-                # FIXED: Format dates to YYYY-MM-DD (ISO) for SQL/SAP compatibility; invalids to empty
+                # Format dates to YYYY-MM-DD (ISO) for SQL/SAP compatibility; invalids (incl. 1970-01-01/zero) to '0'
                 for dc in ['Invoice Date', 'Reference Doc Date']:
                     if dc in df.columns:
                         df[dc] = pd.to_datetime(df[dc], errors='coerce', dayfirst=True)  # Handles DD/MM/YYYY input
+                        
+                        # Mask epoch (from zero inputs) as invalid
+                        epoch_mask = (df[dc] == pd.Timestamp('1970-01-01'))
+                        df[dc] = df[dc].where(~epoch_mask, pd.NaT)
+                        
                         invalid_mask = df[dc].isna()
                         if invalid_mask.sum() > 0:
-                            print(f"Info: {invalid_mask.sum()} invalid dates in {dc} for {filename}; setting to empty (NULL)")
+                            print(f"Info: {invalid_mask.sum()} invalid dates (incl. zeros/epoch) in {dc} for {filename}; setting to '0'")
+                        
                         df[dc] = df[dc].dt.strftime('%Y-%m-%d').where(df[dc].notna(), '0')
-                        df[dc] = df[dc].astype(str)  # None -> '' in CSV
+                        df[dc] = df[dc].astype(str)  # '0' for invalids in CSV
                 # Write to CSV in ZIP
                 csv_buffer = io.StringIO()
                 df.to_csv(csv_buffer, index=False, header=False, quoting=3, na_rep='')
