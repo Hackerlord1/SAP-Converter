@@ -8,45 +8,38 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary-gradient: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
-            --accent-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            --success-gradient: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
-            --card-shadow: 0 20px 40px rgba(0,0,0,0.1);
-            --glass-bg: rgba(255, 255, 255, 0.1);
-            --glass-border: rgba(255, 255, 255, 0.2);
-            --hover-lift: translateY(-10px);
+            --primary-gradient: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+            --accent-gradient: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+            --success-gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --card-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            --glass-bg: rgba(255, 255, 255, 0.95);
+            --glass-border: rgba(0, 0, 0, 0.05);
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
         }
         
         body {
-            background: linear-gradient(-45deg, #0f2027, #203a43, #2c5364, #667eea);
-            background-size: 400% 400%;
-            animation: gradientShift 15s ease infinite;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             min-height: 100vh;
             font-family: 'Inter', 'Segoe UI', Tahoma, sans-serif;
-            color: #fff;
-        }
-        
-        @keyframes gradientShift {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
+            color: var(--text-primary);
         }
         
         .main-card {
             border: none;
-            border-radius: 25px;
+            border-radius: 16px;
             box-shadow: var(--card-shadow);
-            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            transition: all 0.3s ease;
             background: var(--glass-bg);
-            backdrop-filter: blur(20px);
             border: 1px solid var(--glass-border);
-            transform: scale(0.95);
-            margin: 0 auto;
+            transform: scale(0.85);
+            margin: 2rem auto;
+            max-width: 800px;
         }
         
         .main-card:hover {
-            transform: scale(0.95) var(--hover-lift);
-            box-shadow: 0 30px 60px rgba(0,0,0,0.2);
+            transform: scale(0.86);
+            box-shadow: 0 15px 35px rgba(0,0,0,0.12);
         }
         
         .col-lg-10 {
@@ -55,86 +48,71 @@
         
         .card-header {
             background: var(--primary-gradient);
-            border-radius: 25px 25px 0 0 !important;
-            padding: 2rem;
-            position: relative;
-            overflow: hidden;
+            border-radius: 16px 16px 0 0 !important;
+            padding: 1.5rem;
+            color: white;
         }
         
-        .card-header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
-            transform: rotate(45deg);
-            animation: shimmer 3s infinite;
+        .card-header h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
         }
         
-        @keyframes shimmer {
-            0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-            100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+        .card-header p {
+            opacity: 0.9;
+            margin: 0;
         }
         
         .card-body {
-            padding: 2.5rem !important;
+            padding: 1.5rem !important;
         }
         
         .upload-area {
-            border: 2px dashed rgba(255,255,255,0.3);
-            border-radius: 20px;
-            padding: 3rem 2rem;
+            border: 2px dashed #d1d5db;
+            border-radius: 12px;
+            padding: 2rem 1.5rem;
             text-align: center;
             transition: all 0.3s ease;
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
+            background: #f9fafb;
             cursor: pointer;
-            position: relative;
         }
         
         .upload-area:hover, .upload-area.dragover {
-            border-color: #38ef7d;
-            background: rgba(56, 239, 125, 0.1);
-            transform: scale(1.02);
+            border-color: #10b981;
+            background: #f0fdf4;
         }
         
         .upload-icon {
-            font-size: 4rem;
-            color: #38ef7d;
-            margin-bottom: 1.5rem;
-            opacity: 0.8;
+            font-size: 2.5rem;
+            color: #6b7280;
+            margin-bottom: 1rem;
         }
         
-        .main-card h1, .main-card h4, .main-card h5 {
-            font-weight: 700;
-            letter-spacing: -0.5px;
+        .upload-area:hover .upload-icon {
+            color: #10b981;
         }
         
         .file-list {
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
-            border-radius: 15px;
-            padding: 1.5rem;
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            border: 1px solid var(--glass-border);
+            border-radius: 8px;
+            padding: 1rem;
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
         }
         
         .file-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.75rem 0;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
-            transition: all 0.2s ease;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.9rem;
         }
         
         .file-item:hover {
-            background: rgba(255,255,255,0.05);
-            padding-left: 0.5rem;
+            background: #f3f4f6;
         }
         
         .file-item:last-child {
@@ -142,61 +120,73 @@
         }
         
         .processing-step {
-            padding-left: 3rem;
-            margin-bottom: 1.5rem;
+            padding-left: 2rem;
+            margin-bottom: 1rem;
             position: relative;
-            opacity: 0.9;
+            font-size: 0.9rem;
         }
         
         .processing-step::before {
             content: '';
             position: absolute;
-            left: 1rem;
-            top: 0.5rem;
-            width: 0.5rem;
-            height: 0.5rem;
-            background: #38ef7d;
+            left: 0.5rem;
+            top: 0.25rem;
+            width: 6px;
+            height: 6px;
+            background: #10b981;
             border-radius: 50%;
         }
         
         .processing-step strong {
-            color: #fff;
+            color: var(--text-primary);
             display: block;
+            font-size: 1rem;
+        }
+        
+        .processing-step p {
+            color: var(--text-secondary);
+            margin: 0;
         }
         
         .stats-card {
-            padding: 1.5rem;
-            background: var(--accent-gradient);
-            border-radius: 15px;
+            padding: 1rem;
+            background: white;
+            border-radius: 8px;
             text-align: center;
-            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            border: 1px solid #e5e7eb;
         }
         
         .stats-number {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: #fff;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #1e40af;
         }
         
         .form-check-input:checked {
-            background-color: #38ef7d;
-            border-color: #38ef7d;
+            background-color: #10b981;
+            border-color: #10b981;
+        }
+        
+        .form-check-label {
+            font-weight: 500;
+            color: var(--text-primary);
         }
         
         .btn-primary {
             background: var(--success-gradient);
             border: none;
-            padding: 1rem 2.5rem;
-            font-size: 1.1em;
-            font-weight: 600;
-            border-radius: 50px;
+            padding: 0.75rem 2rem;
+            font-size: 1rem;
+            font-weight: 500;
+            border-radius: 8px;
             transition: all 0.3s ease;
-            box-shadow: 0 10px 20px rgba(56, 239, 125, 0.3);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
         }
         
         .btn-primary:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(56, 239, 125, 0.4);
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.3);
         }
         
         .loading-overlay {
@@ -206,20 +196,20 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(15, 32, 39, 0.9);
+            background: rgba(0,0,0,0.5);
             z-index: 9999;
             justify-content: center;
             align-items: center;
-            backdrop-filter: blur(5px);
         }
         
         .spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid rgba(255,255,255,0.3);
-            border-top: 4px solid #38ef7d;
+            width: 40px;
+            height: 40px;
+            border: 3px solid #f3f4f6;
+            border-top: 3px solid #10b981;
             border-radius: 50%;
             animation: spin 1s linear infinite;
+            margin-bottom: 1rem;
         }
         
         @keyframes spin {
@@ -228,43 +218,43 @@
         }
         
         .card-footer {
-            background: rgba(255,255,255,0.05);
-            border-radius: 0 0 25px 25px;
-            border-top: 1px solid var(--glass-border);
-            padding: 1.5rem 2rem;
+            background: #f9fafb;
+            border-radius: 0 0 16px 16px;
+            border-top: 1px solid #e5e7eb;
+            padding: 1rem 1.5rem;
+            font-size: 0.85rem;
+            color: var(--text-secondary);
         }
         
         .form-text {
-            color: rgba(255,255,255,0.7);
+            color: var(--text-secondary);
+            font-size: 0.85rem;
         }
         
-        /* Responsive adjustments */
+        /* Responsive */
         @media (max-width: 768px) {
             .main-card {
-                transform: scale(0.9);
+                transform: scale(0.95);
                 margin: 1rem;
             }
             .card-body {
-                padding: 1.5rem !important;
+                padding: 1rem !important;
             }
         }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Loading Overlay -->
     <div class="loading-overlay" id="loadingOverlay">
-        <div class="text-center">
-            <div class="spinner mb-4"></div>
-            <h4 class="mb-2">Processing Files...</h4>
-            <p class="text-muted">Please wait while we transform your Excel data</p>
-            <div class="mt-3">
-                <i class="fas fa-file-excel fa-2x" style="color: #38ef7d; opacity: 0.7;"></i>
-            </div>
+        <div class="text-center text-white">
+            <div class="spinner"></div>
+            <h5 class="mb-2">Processing Files...</h5>
+            <p class="mb-0">Please wait while we prepare your data</p>
         </div>
     </div>
 
-    <div class="container py-5">
+    <div class="container py-4">
         <div class="row justify-content-center">
             <div class="col-lg-10">
                 <!-- Main Card -->
@@ -272,56 +262,56 @@
                     <div class="card-header text-center">
                         <div class="row align-items-center">
                             <div class="col-md-2 text-center">
-                                <i class="fas fa-file-excel fa-4x mb-3" style="opacity: 0.8;"></i>
+                                <i class="fas fa-file-excel fa-2x" style="opacity: 0.9;"></i>
                             </div>
                             <div class="col-md-10">
-                                <h1 class="display-5 fw-bold mb-3">SAP B1 Excel Processor</h1>
-                                <p class="lead mb-0" style="opacity: 0.9;">Streamline your SAP Business One data with automated cleaning and CSV export</p>
+                                <h1 class="mb-2">SAP B1 Excel Processor</h1>
+                                <p class="lead mb-0">Efficient data cleaning and CSV conversion for SAP Business One</p>
                             </div>
                         </div>
                     </div>
                     
                     <div class="card-body">
                         <!-- Upload Section -->
-                        <div class="row mb-5">
-                            <div class="col-md-6">
+                        <div class="row mb-3">
+                            <div class="col-md-6 mb-3">
                                 <div class="upload-area" id="uploadArea">
                                     <label for="fileInput" style="cursor: pointer; display: block;">
                                         <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                                        <h4>Drop Your Files Here</h4>
-                                        <p class="text-muted" style="opacity: 0.8;">or click to select Excel files (.xlsx, .xls)</p>
+                                        <h5 class="mb-2">Select Files</h5>
+                                        <p class="text-muted mb-0">Drag & drop or click to browse (.xlsx, .xls)</p>
                                     </label>
                                     <input type="file" class="d-none" id="fileInput" name="files" accept=".xlsx,.xls" multiple required>
                                 </div>
                             </div>
                             
                             <div class="col-md-6">
-                                <h5 class="fw-bold mb-4"><i class="fas fa-cogs me-2" style="color: #38ef7d;"></i>Processing Pipeline</h5>
+                                <h6 class="fw-bold mb-3"><i class="fas fa-list-check me-2 text-success"></i>Processing Steps</h6>
                                 <div class="processing-steps">
                                     <div class="processing-step">
-                                        <strong>Zero-Row Filter</strong>
-                                        <p class="text-muted mb-0 small">Eliminates empty sales lines</p>
+                                        <strong>Filter Zeros</strong>
+                                        <p>Removes rows with zero quantities</p>
                                     </div>
                                     <div class="processing-step">
-                                        <strong>Numeric Normalization</strong>
-                                        <p class="text-muted mb-0 small">Fills blanks with zeros</p>
+                                        <strong>Clean Numerics</strong>
+                                        <p>Fills empty values with zeros</p>
                                     </div>
                                     <div class="processing-step">
-                                        <strong>Intelligent Naming</strong>
-                                        <p class="text-muted mb-0 small">Dynamic file labels by type</p>
+                                        <strong>Auto-Rename</strong>
+                                        <p>Generates filenames by document type</p>
                                     </div>
                                     <div class="processing-step">
-                                        <strong>CSV Optimization</strong>
-                                        <p class="text-muted mb-0 small">SAP-ready headerless export</p>
+                                        <strong>CSV Export</strong>
+                                        <p>Headerless format for SAP import</p>
                                     </div>
                                 </div>
                             </div>
                         </div>
                         
                         <!-- File List -->
-                        <div class="row mb-4" id="fileListSection" style="display: none;">
+                        <div class="row mb-3" id="fileListSection" style="display: none;">
                             <div class="col-12">
-                                <h5 class="fw-bold mb-3"><i class="fas fa-list me-2"></i>Selected Files</h5>
+                                <h6 class="fw-bold mb-2"><i class="fas fa-file-lines me-2"></i>Selected Files</h6>
                                 <div class="file-list" id="fileList">
                                     <!-- Files will be listed here -->
                                 </div>
@@ -329,27 +319,27 @@
                         </div>
                         
                         <!-- Options & Stats -->
-                        <div class="row mb-4">
+                        <div class="row mb-3">
                             <div class="col-md-8">
-                                <div class="form-check form-switch mb-3">
+                                <div class="form-check form-switch mb-2">
                                     <input class="form-check-input" type="checkbox" id="previewToggle" name="preview" value="yes">
-                                    <label class="form-check-label fw-bold" for="previewToggle">
-                                        <i class="fas fa-eye me-1"></i> Preview Mode
+                                    <label class="form-check-label" for="previewToggle">
+                                        <i class="fas fa-eye me-1"></i> Enable Preview
                                     </label>
-                                    <div class="form-text">Inspect data before finalizing</div>
+                                    <div class="form-text">Review contents before processing</div>
                                 </div>
                                 <div class="form-check form-switch">
                                     <input class="form-check-input" type="checkbox" id="excludeReturnsToggle" name="exclude_returns" value="yes" checked>
-                                    <label class="form-check-label fw-bold" for="excludeReturnsToggle">
-                                        <i class="fas fa-minus-circle me-1"></i> Exclude Returns
+                                    <label class="form-check-label" for="excludeReturnsToggle">
+                                        <i class="fas fa-filter me-1"></i> Exclude Returns
                                     </label>
-                                    <div class="form-text">Skip 'Credit for Returns' entries</div>
+                                    <div class="form-text">Remove 'Credit for Returns' rows</div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <div class="stats-card">
                                     <div class="stats-number" id="fileCount">0</div>
-                                    <div class="text-white-50">Files Loaded</div>
+                                    <div class="text-muted small">Files Ready</div>
                                 </div>
                             </div>
                         </div>
@@ -359,8 +349,8 @@
                             <div class="col-12">
                                 <form method="post" enctype="multipart/form-data" id="uploadForm">
                                     <div class="d-grid">
-                                        <button type="submit" class="btn btn-primary btn-lg" id="submitBtn" disabled>
-                                            <i class="fas fa-rocket me-2"></i> Launch Processing
+                                        <button type="submit" class="btn btn-primary" id="submitBtn" disabled>
+                                            <i class="fas fa-play me-2"></i> Process & Download
                                         </button>
                                     </div>
                                 </form>
@@ -369,14 +359,9 @@
                     </div>
                     
                     <div class="card-footer text-center">
-                        <div class="row">
-                            <div class="col-md-8">
-                                <small style="opacity: 0.7;"><i class="fas fa-lock me-1"></i> Secure processing – files auto-deleted post-download</small>
-                            </div>
-                            <div class="col-md-4 text-end">
-                                <small style="opacity: 0.7;"><i class="fas fa-bolt me-1"></i> Batch optimized</small>
-                            </div>
-                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-shield-alt me-1"></i> Secure & automatic file deletion after processing
+                        </small>
                     </div>
                 </div>
             </div>
@@ -398,7 +383,7 @@
 
         let currentFiles = [];
 
-        // Drag and drop functionality
+        // Drag and drop
         uploadArea.addEventListener('dragover', (e) => {
             e.preventDefault();
             uploadArea.classList.add('dragover');
@@ -440,15 +425,15 @@
 
             currentFiles.forEach((file, index) => {
                 const fileItem = document.createElement('div');
-                fileItem.className = 'file-item d-flex justify-content-between align-items-center';
+                fileItem.className = 'file-item';
                 fileItem.innerHTML = `
                     <div class="d-flex align-items-center">
-                        <i class="fas fa-file-excel me-2" style="color: #38ef7d; opacity: 0.8;"></i>
-                        <span style="opacity: 0.9;">${file.name}</span>
+                        <i class="fas fa-file-excel me-2 text-success"></i>
+                        <span class="flex-grow-1">${file.name}</span>
                     </div>
-                    <div class="text-end">
+                    <div>
                         <small class="text-muted me-2">${(file.size / 1024).toFixed(1)} KB</small>
-                        <button type="button" class="btn btn-sm btn-outline-light" onclick="removeFile(${index})" title="Remove">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="removeFile(${index})">
                             <i class="fas fa-times"></i>
                         </button>
                     </div>
@@ -516,26 +501,25 @@
                     }
                 } else {
                     const errorText = await response.text();
-                    alert(`Error processing files: ${errorText}`);
+                    alert(`Error: ${errorText}`);
                 }
             } catch (error) {
-                alert('Error uploading files: ' + error.message);
+                alert('Upload error: ' + error.message);
             } finally {
                 loadingOverlay.style.display = 'none';
             }
         });
 
-        // Enhanced load animation
+        // Subtle load animation
         document.addEventListener('DOMContentLoaded', () => {
             const card = document.querySelector('.main-card');
             card.style.opacity = '0';
-            card.style.transform = 'scale(0.95) rotateX(10deg)';
-            
+            card.style.transform = 'scale(0.8)';
             setTimeout(() => {
-                card.style.transition = 'all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                card.style.transition = 'all 0.4s ease';
                 card.style.opacity = '1';
-                card.style.transform = 'scale(0.95) rotateX(0deg)';
-            }, 200);
+                card.style.transform = 'scale(0.85)';
+            }, 100);
         });
     </script>
 </body>
