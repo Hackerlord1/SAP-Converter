@@ -1,4 +1,3 @@
-
 from flask import Flask, request, send_file, render_template, redirect, url_for
 import pandas as pd
 import io
@@ -13,6 +12,9 @@ app.config['UPLOAD_FOLDER'] = 'temp_uploads'
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max file size
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
+# Global dict to store session flags (simple in-memory storage; use Redis/session for production)
+sessions = {}
+
 @app.route('/', methods=['GET'])
 def index():
     return render_template('index.html')
@@ -24,7 +26,9 @@ def upload():
         return "No files selected", 400
     
     preview = 'preview' in request.form
+    exclude_returns = 'exclude_returns' in request.form
     session_id = str(uuid.uuid4())
+    sessions[session_id] = {'exclude_returns': exclude_returns}
     previews = {}
     
     for file in files:
@@ -49,12 +53,15 @@ def upload():
                 previews[secure_name] = f"<p class='text-danger'><i class='fas fa-exclamation-triangle me-1'></i>Error loading preview: {str(e)}</p>"
     
     if preview:
-        return render_template('preview.html', previews=previews.items(), session_id=session_id)
+        return render_template('preview.html', previews=previews.items(), session_id=session_id, exclude_returns=exclude_returns)
     else:
         return redirect(url_for('process_files', session_id=session_id))
 
 @app.route('/process/<session_id>')
 def process_files(session_id):
+    session_data = sessions.get(session_id, {})
+    exclude_returns = session_data.get('exclude_returns', False)
+    
     files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(session_id + '_')]
     if not files:
         return "Session not found or files already processed", 404
@@ -79,6 +86,14 @@ def process_files(session_id):
                 df['Sale_Qty_Pcs'] = pd.to_numeric(df['Sale_Qty_Pcs'], errors='coerce').fillna(0)
                 df['Free_Total_Qty'] = pd.to_numeric(df['Free_Total_Qty'], errors='coerce').fillna(0)
                 df = df[~((df['Sale_Qty_Pcs'] == 0) & (df['Free_Total_Qty'] == 0))]
+                
+                # New: Exclude returns if flag is set
+                if exclude_returns:
+                    initial_rows = len(df)
+                    df = df[df['Document Type Descrw'] != 'Credit for Returns']
+                    returns_removed = initial_rows - len(df)
+                    if returns_removed > 0:
+                        print(f"Info: Removed {returns_removed} return rows from {filename}")
                 
                 # Step 2: Replace empties with 0 in specified columns
                 target_cols = ['Pieces per Case', 'List Price per case', 'Sale_Qty_Pcs', 'Free_Total_Qty',
@@ -168,6 +183,10 @@ def process_files(session_id):
             finally:
                 if os.path.exists(filepath):
                     os.remove(filepath)
+    
+    # Clean up session
+    if session_id in sessions:
+        del sessions[session_id]
     
     # Clean up
     if os.path.exists(app.config['UPLOAD_FOLDER']) and not os.listdir(app.config['UPLOAD_FOLDER']):
