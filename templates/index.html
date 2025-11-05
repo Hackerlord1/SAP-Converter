@@ -328,12 +328,21 @@
                                     </label>
                                     <div class="form-text">Review contents before processing</div>
                                 </div>
-                                <div class="form-check form-switch">
-                                    <input class="form-check-input" type="checkbox" id="excludeReturnsToggle" name="exclude_returns" value="yes" checked>
+                                <!-- CHANGED: Exclude Returns now unchecked by default -->
+                                <div class="form-check form-switch mb-2">
+                                    <input class="form-check-input" type="checkbox" id="excludeReturnsToggle" name="exclude_returns" value="yes">
                                     <label class="form-check-label" for="excludeReturnsToggle">
                                         <i class="fas fa-filter me-1"></i> Exclude Returns
                                     </label>
                                     <div class="form-text">Remove 'Credit for Returns' rows</div>
+                                </div>
+                                <!-- NEW: Exclude Invoices checkbox -->
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" id="excludeInvoicesToggle" name="exclude_invoices" value="yes">
+                                    <label class="form-check-label" for="excludeInvoicesToggle">
+                                        <i class="fas fa-filter me-1"></i> Exclude Invoices
+                                    </label>
+                                    <div class="form-text">Remove 'Invoice' rows</div>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -380,6 +389,7 @@
         const loadingOverlay = document.getElementById('loadingOverlay');
         const previewToggle = document.getElementById('previewToggle');
         const excludeReturnsToggle = document.getElementById('excludeReturnsToggle');
+        const excludeInvoicesToggle = document.getElementById('excludeInvoicesToggle'); // NEW
 
         let currentFiles = [];
 
@@ -473,6 +483,11 @@
 
             if (excludeReturnsToggle.checked) {
                 formData.append('exclude_returns', 'yes');
+            }
+
+            // NEW: Add exclude_invoices to form data
+            if (excludeInvoicesToggle.checked) {
+                formData.append('exclude_invoices', 'yes');
             }
 
             try {

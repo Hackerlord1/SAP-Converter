@@ -22,6 +22,9 @@
         .preview-card {
             border-left: 4px solid #28a745;
         }
+        .settings-badge {
+            font-size: 0.85rem;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -36,6 +39,40 @@
                 </nav>
             </div>
         </div>
+        
+        <!-- Settings Summary Card -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow border-0">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0"><i class="fas fa-cogs me-2"></i>Processing Settings</h4>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6 class="fw-bold mb-2">Filter Settings:</h6>
+                                <div class="d-flex flex-wrap gap-2">
+                                    <span class="badge {% if exclude_returns %}bg-danger{% else %}bg-secondary{% endif %} settings-badge">
+                                        <i class="fas fa-filter me-1"></i>
+                                        Exclude Returns: {{ 'Yes' if exclude_returns else 'No' }}
+                                    </span>
+                                    <span class="badge {% if exclude_invoices %}bg-danger{% else %}bg-secondary{% endif %} settings-badge">
+                                        <i class="fas fa-filter me-1"></i>
+                                        Exclude Invoices: {{ 'Yes' if exclude_invoices else 'No' }}
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="fw-bold mb-2">File Information:</h6>
+                                <p class="mb-1"><i class="fas fa-file me-2 text-muted"></i>{{ previews|length }} file(s) loaded</p>
+                                <p class="mb-0"><i class="fas fa-eye me-2 text-muted"></i>Showing first 5 rows of each file</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row">
             <div class="col-md-12">
                 <div class="card shadow border-0 mb-4">
@@ -49,10 +86,14 @@
                         {% if previews %}
                             {% for filename, table in previews %}
                             <div class="card preview-card mb-4">
-                                <div class="card-header bg-transparent">
+                                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
                                     <h5 class="card-title mb-0">
                                         <i class="fas fa-file-excel me-2 text-primary"></i>{{ filename }} (First 5 rows)
                                     </h5>
+                                    <small class="text-muted">
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        Will be processed with current settings
+                                    </small>
                                 </div>
                                 <div class="card-body p-0">
                                     <div class="table-container">
@@ -68,6 +109,24 @@
                                 <p class="text-muted">Unable to generate preview for the uploaded files.</p>
                             </div>
                         {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body text-center">
+                        <div class="btn-group" role="group">
+                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Back to Upload
+                            </a>
+                            <a href="{{ url_for('process_files', session_id=session_id) }}" class="btn btn-success">
+                                <i class="fas fa-play me-2"></i>Process Files Now
+                            </a>
+                        </div>
                     </div>
                 </div>
             </div>
