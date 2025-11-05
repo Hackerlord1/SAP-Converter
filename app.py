@@ -1,4 +1,4 @@
-from flask import Flask, request, send_file, render_template, redirect, url_for
+from flask import Flask, request, send_file, render_template, redirect, url_for,jsonify
 import pandas as pd
 import io
 from datetime import datetime
@@ -13,6 +13,42 @@ app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
 sessions = {}
+
+@app.route('/cron')
+def cron_health_check():
+    """Lightweight health check route for cron jobs"""
+    try:
+        # Basic health checks
+        health_status = {
+            'status': 'healthy',
+            'timestamp': datetime.now().isoformat(),
+            'service': 'SAP B1 Excel Processor',
+            'version': '1.0',
+            'temp_folder_exists': os.path.exists(app.config['UPLOAD_FOLDER']),
+            'temp_folder_writable': os.access(app.config['UPLOAD_FOLDER'], os.W_OK),
+            'active_sessions': len(sessions),
+            'memory_usage_mb': os.getpid()  # Placeholder, you can add psutil if needed
+        }
+        
+        # Check if we can perform basic file operations
+        test_file = os.path.join(app.config['UPLOAD_FOLDER'], 'health_check.test')
+        try:
+            with open(test_file, 'w') as f:
+                f.write('health_check')
+            os.remove(test_file)
+            health_status['file_operations'] = 'working'
+        except Exception as e:
+            health_status['file_operations'] = f'failed: {str(e)}'
+            health_status['status'] = 'degraded'
+        
+        return jsonify(health_status), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'timestamp': datetime.now().isoformat(),
+            'error': str(e)
+        }), 500
 
 @app.route('/', methods=['GET'])
 def index():
