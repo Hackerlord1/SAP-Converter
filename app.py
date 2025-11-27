@@ -311,11 +311,16 @@ def upload():
                                exclude_returns=exclude_returns,
                                exclude_invoices=exclude_invoices)
 
-    return redirect(url_for('process_files', session_id=session_id))
+    # For single file, redirect to download endpoint for better filename handling
+    # For multiple files, use the regular process endpoint
+    if len(valid_files) == 1:
+        return redirect(url_for('download_direct', session_id=session_id))
+    else:
+        return redirect(url_for('process_files', session_id=session_id))
 
 @app.route('/process/<session_id>')
 def process_files(session_id):
-    """Process uploaded files and return converted CSVs"""
+    """Process uploaded files and return converted CSVs - for multiple files"""
     session = sessions.get(session_id)
     if not session:
         cleanup_old_sessions()
@@ -340,55 +345,34 @@ def process_files(session_id):
     logger.info(f"Output files: {[f['name'] for f in output_files]}")
     logger.info(f"CSV files: {[f['name'] for f in csv_files]}")
     
-    if len(csv_files) == 1:
-        # Single CSV file - return directly with PROPER GENERATED filename and headers
-        csv_file = csv_files[0]
-        logger.info(f"Downloading single file: {csv_file['name']}")
-        
-        # Create response with proper headers for filename
-        response = Response(
-            csv_file['content'],
-            mimetype='text/csv',
-            headers={
-                'Content-Disposition': f'attachment; filename="{csv_file["name"]}"',
-                'Content-Type': 'text/csv; charset=utf-8',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            }
-        )
-        return response
-        
-    else:
-        # Multiple files or error files - return as ZIP
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for file_info in output_files:
-                zf.writestr(file_info['name'], file_info['content'])
+    # For multiple files, always return as ZIP
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for file_info in output_files:
+            zf.writestr(file_info['name'], file_info['content'])
 
-        zip_buffer.seek(0)
-        logger.info(f"Downloading ZIP with {len(output_files)} files")
-        
-        # For ZIP files, also set proper headers
-        zip_filename = f"UKL_Processed_{datetime.now():%Y%m%d_%H%M%S}.zip"
-        response = send_file(
-            zip_buffer,
-            as_attachment=True,
-            download_name=zip_filename,
-            mimetype='application/zip'
-        )
-        
-        # Add cache control headers for ZIP as well
-        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        
-        return response
+    zip_buffer.seek(0)
+    logger.info(f"Downloading ZIP with {len(output_files)} files")
+    
+    # For ZIP files, set proper headers
+    zip_filename = f"UKL_Processed_{datetime.now():%Y%m%d_%H%M%S}.zip"
+    response = send_file(
+        zip_buffer,
+        as_attachment=True,
+        download_name=zip_filename,
+        mimetype='application/zip'
+    )
+    
+    # Add cache control headers
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    return response
 
-# Alternative direct download endpoint for better filename handling
 @app.route('/download/<session_id>')
 def download_direct(session_id):
-    """Direct download endpoint with guaranteed filename handling"""
+    """Direct download endpoint with guaranteed filename handling - for single files"""
     session = sessions.get(session_id)
     if not session:
         return "Session expired or invalid", 404
@@ -406,7 +390,8 @@ def download_direct(session_id):
         return "All files failed to process.", 400
 
     csv_files = [f for f in output_files if f['type'] == 'csv']
-    if len(csv_files) == 1:
+    if len(csv_files) >= 1:
+        # Use the first CSV file for single file download
         csv_file = csv_files[0]
         logger.info(f"Direct download: {csv_file['name']}")
         
@@ -423,7 +408,7 @@ def download_direct(session_id):
             }
         )
     
-    return "Unexpected error", 500
+    return "No CSV files generated", 500
 
 @app.errorhandler(413)
 def too_large(e):
@@ -432,7 +417,8 @@ def too_large(e):
 @app.errorhandler(500)
 def internal_error(e):
     logger.error(f"Internal server error: {e}")
+    logger.error(traceback.format_exc())  # Add this to see the full traceback
     return "Internal Server Error — check server logs", 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=True)  # Set debug=True to see detailed errors
