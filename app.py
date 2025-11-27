@@ -1,54 +1,63 @@
-from flask import Flask, request, send_file, render_template, redirect, url_for,jsonify
+from flask import Flask, request, send_file, render_template, redirect, url_for, jsonify
 import pandas as pd
 import io
-from datetime import datetime
 import zipfile
 import os
 import uuid
+import csv
+import re
+import traceback
+from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'temp_uploads'
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB
+app.config['SESSION_TIMEOUT'] = timedelta(hours=2)
+
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
-sessions = {}
+# Session store with timestamp
+sessions = {}  # {session_id: {'created': dt, 'exclude_returns': bool, ...}}
+
+def clean_route_name(value):
+    """Remove invisible Ctrl+J characters and Unicode gremlins ONLY from Route Name"""
+    if pd.isna(value) or value == '':
+        return value
+    text = str(value)
+    # Remove zero-width, non-breaking spaces, BOM, control chars — exactly what Ctrl+J finds
+    cleaned = re.sub(r'[\u200B-\u200D\u2060\uFEFF\u00A0\r\n\t\x00-\x08\x0B\x0C\x0E-\x1F\x7F]', '', text)
+    return cleaned.strip()
+
+def cleanup_old_sessions():
+    now = datetime.now()
+    expired = [sid for sid, data in sessions.items() if now - data['created'] > app.config['SESSION_TIMEOUT']]
+    for sid in expired:
+        pattern = f"{sid}_"
+        for f in os.listdir(app.config['UPLOAD_FOLDER']):
+            if f.startswith(pattern):
+                try:
+                    os.remove(os.path.join(app.config['UPLOAD_FOLDER'], f))
+                except:
+                    pass
+        sessions.pop(sid, None)
 
 @app.route('/cron')
 def cron_health_check():
-    """Lightweight health check route for cron jobs"""
+    cleanup_old_sessions()
     try:
-        # Basic health checks
-        health_status = {
+        test_path = os.path.join(app.config['UPLOAD_FOLDER'], 'health.test')
+        with open(test_path, 'w') as f:
+            f.write('ok')
+        os.remove(test_path)
+        return jsonify({
             'status': 'healthy',
             'timestamp': datetime.now().isoformat(),
-            'service': 'SAP B1 Excel Processor',
-            'version': '1.0',
-            'temp_folder_exists': os.path.exists(app.config['UPLOAD_FOLDER']),
-            'temp_folder_writable': os.access(app.config['UPLOAD_FOLDER'], os.W_OK),
             'active_sessions': len(sessions),
-            'memory_usage_mb': os.getpid()  # Placeholder, you can add psutil if needed
-        }
-        
-        # Check if we can perform basic file operations
-        test_file = os.path.join(app.config['UPLOAD_FOLDER'], 'health_check.test')
-        try:
-            with open(test_file, 'w') as f:
-                f.write('health_check')
-            os.remove(test_file)
-            health_status['file_operations'] = 'working'
-        except Exception as e:
-            health_status['file_operations'] = f'failed: {str(e)}'
-            health_status['status'] = 'degraded'
-        
-        return jsonify(health_status), 200
-        
+            'temp_files': len(os.listdir(app.config['UPLOAD_FOLDER']))
+        }), 200
     except Exception as e:
-        return jsonify({
-            'status': 'error',
-            'timestamp': datetime.now().isoformat(),
-            'error': str(e)
-        }), 500
+        return jsonify({'status': 'error', 'error': str(e)}), 500
 
 @app.route('/', methods=['GET'])
 def index():
@@ -59,274 +68,197 @@ def upload():
     files = request.files.getlist('files')
     if not files or all(f.filename == '' for f in files):
         return "No files selected", 400
-    
+
     preview = 'preview' in request.form
     exclude_returns = 'exclude_returns' in request.form
     exclude_invoices = 'exclude_invoices' in request.form
+
     session_id = str(uuid.uuid4())
     sessions[session_id] = {
+        'created': datetime.now(),
         'exclude_returns': exclude_returns,
         'exclude_invoices': exclude_invoices
     }
+
     previews = {}
-    
     for file in files:
-        if file.filename == '':
+        if not file or not file.filename:
             continue
-        secure_name = secure_filename(file.filename)
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{session_id}_{secure_name}")
+        safe_name = secure_filename(file.filename)
+        if not safe_name:
+            continue
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{session_id}_{safe_name}")
         file.save(filepath)
-        
+
         if preview:
             try:
-                # Read as strings to preserve raw format
-                df = pd.read_excel(filepath, engine='openpyxl', dtype=str)
-                preview_df = df.head(5).to_html(
-                    classes='table table-striped table-hover table-sm', 
-                    index=False, 
-                    escape=False, 
-                    border=0,
-                    na_rep=''
+                df_preview = pd.read_excel(filepath, engine='openpyxl', dtype=str, nrows=5)
+                previews[safe_name] = df_preview.head(5).to_html(
+                    classes='table table-striped table-sm', index=False, border=0, na_rep=''
                 )
-                previews[secure_name] = preview_df
             except Exception as e:
-                previews[secure_name] = f"<p class='text-danger'><i class='fas fa-exclamation-triangle me-1'></i>Error loading preview: {str(e)}</p>"
-    
+                previews[safe_name] = f"<p class='text-danger'>Preview error: {e}</p>"
+
     if preview:
-        return render_template('preview.html', previews=previews.items(), session_id=session_id, 
-                             exclude_returns=exclude_returns, exclude_invoices=exclude_invoices)
-    else:
-        return redirect(url_for('process_files', session_id=session_id))
+        return render_template('preview.html', previews=previews.items(), session_id=session_id,
+                               exclude_returns=exclude_returns, exclude_invoices=exclude_invoices)
+    return redirect(url_for('process_files', session_id=session_id))
 
 @app.route('/process/<session_id>')
 def process_files(session_id):
-    session_data = sessions.get(session_id, {})
-    exclude_returns = session_data.get('exclude_returns', False)
-    exclude_invoices = session_data.get('exclude_invoices', False)
-    
-    files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(session_id + '_')]
+    cleanup_old_sessions()
+
+    session = sessions.get(session_id)
+    if not session:
+        return "Session expired or invalid", 404
+
+    exclude_returns = session.get('exclude_returns', False)
+    exclude_invoices = session.get('exclude_invoices', False)
+
+    pattern = f"{session_id}_"
+    files = [f for f in os.listdir(app.config['UPLOAD_FOLDER']) if f.startswith(pattern)]
     if not files:
-        return "Session not found or files already processed", 404
-    
+        return "No files found", 404
+
     zip_buffer = io.BytesIO()
-    processed_files = 0
-    error_files = []
+    zip_buffer = io.BytesIO()
+    processed_count = 0
+    errors = []
+
     required_cols = ['Document Type Descrw', 'Storage Location', 'Sale_Qty_Pcs', 'Free_Total_Qty']
-    
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+    location_map = {
+        '15330599': 'lodwar', '15510868': 'kapsabet', '15393486': 'bomet', '50260522': 'nakuru',
+        '50260577': 'savemore', '18010415': 'kisii', '50260971': 'molo', '15580524': 'naivasha',
+        '18041985': 'rongo', '15580523': 'nyahururu', '15393485': 'kericho', '15510770': 'eldoret',
+    }
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
         for filename in files:
             filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            orig_filename = filename[len(pattern):]  # human readable name
             try:
-                # READ EVERYTHING AS STRINGS - NO DATE INTERPRETATION
-                with open(filepath, 'rb') as f:
-                    df = pd.read_excel(f, engine='openpyxl', dtype=str)
-                
-                missing_cols = [col for col in required_cols if col not in df.columns]
-                if missing_cols:
-                    raise ValueError(f"Missing required columns: {', '.join(missing_cols)}")
-                
-                # Debug: Show raw date values before any processing
-                for date_col in ['Invoice Date', 'Reference Doc Date']:
-                    if date_col in df.columns:
-                        sample_values = df[date_col].head(3).tolist()
-                        print(f"DEBUG {filename} - Raw {date_col} values: {sample_values}")
-                        print(f"DEBUG {filename} - Raw {date_col} types: {[type(x).__name__ for x in sample_values]}")
-                
-                # Step 1: Filter rows where both Sale_Qty_Pcs and Free_Total_Qty are 0
-                df['Sale_Qty_Pcs'] = pd.to_numeric(df['Sale_Qty_Pcs'], errors='coerce').fillna(0)
-                df['Free_Total_Qty'] = pd.to_numeric(df['Free_Total_Qty'], errors='coerce').fillna(0)
+                df = pd.read_excel(filepath, engine='openpyxl', dtype=str, keep_default_na=False)
+
+                # === CLEAN ONLY Route Name column
+                if 'Route Name' in df.columns:
+                    df['Route Name'] = df['Route Name'].apply(clean_route_name)
+                # Optional: warn if missing
+                # else:
+                #     print(f"'Route Name' column missing in {orig_filename}")
+
+                missing = [c for c in required_cols if c not in df.columns]
+                if missing:
+                    raise ValueError(f"Missing required columns: {', '.join(missing)}")
+
+                # Convert quantities
+                for col in ['Sale_Qty_Pcs', 'Free_Total_Qty']:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
                 df = df[~((df['Sale_Qty_Pcs'] == 0) & (df['Free_Total_Qty'] == 0))]
-                
+
                 if exclude_returns:
-                    initial_rows = len(df)
                     df = df[df['Document Type Descrw'] != 'Credit for Returns']
-                    returns_removed = initial_rows - len(df)
-                    if returns_removed > 0:
-                        print(f"Info: Removed {returns_removed} return rows from {filename}")
-                
                 if exclude_invoices:
-                    initial_rows = len(df)
                     df = df[df['Document Type Descrw'] != 'Invoice']
-                    invoices_removed = initial_rows - len(df)
-                    if invoices_removed > 0:
-                        print(f"Info: Removed {invoices_removed} invoice rows from {filename}")
-                
-                # Step 2: Replace empties with 0 in specified columns
-                target_cols = ['Pieces per Case', 'List Price per case', 'Sale_Qty_Pcs', 'Free_Total_Qty',
-                               'Gross Sale', 'Net Sale', 'Bonus_Discount', 'Trade_Discount',
-                               'Cash_Discount', 'Total Discount']
-                for col in target_cols:
+
+                if df.empty:
+                    raise ValueError("No data remaining after filtering")
+
+                # Normalize numeric columns
+                num_cols = ['Pieces per Case', 'List Price per case', 'Gross Sale', 'Net Sale',
+                            'Bonus_Discount', 'Trade_Discount', 'Cash_Discount', 'Total Discount']
+                for col in num_cols:
                     if col in df.columns:
                         df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-                
-                # Standardize Salesrep Code
+
                 if 'Salesrep Code' in df.columns:
-                    df['Salesrep Code'] = df['Salesrep Code'].astype(str)
-                    mask_numeric = df['Salesrep Code'].str.isdigit()
-                    df.loc[mask_numeric, 'Salesrep Code'] = df.loc[mask_numeric, 'Salesrep Code'].str.zfill(3)
-                
-                # Standardize Salesrep Name
+                    df['Salesrep Code'] = df['Salesrep Code'].astype(str).str.zfill(3)
                 if 'Salesrep Name' in df.columns:
                     df['Salesrep Name'] = df['Salesrep Name'].str.strip().str.replace(r'\s+', ' ', regex=True)
-                
-                # Pad LineNum to 2 digits
-                if len(df.columns) > 7:
-                    line_col = df.columns[7] if 'LineNum' not in df.columns else 'LineNum'
-                    if line_col in df.columns:
-                        df[line_col] = df[line_col].astype(str).str.zfill(2)
-                
-                if len(df) == 0:
-                    error_files.append(f"{filename}: No data after filtering")
-                    continue
-                
-                # Step 3: Rename logic
-                doc_types = df['Document Type Descrw'].value_counts()
-                invoice_count = doc_types.get('Invoice', 0)
-                credit_count = doc_types.get('Credit for Returns', 0)
-                
-                if invoice_count > credit_count:
-                    date_col = 'Invoice Date'
-                    suffix = 'Inv'
-                else:
-                    date_col = 'Reference Doc Date'
-                    suffix = 'Returns'
-                
-                # Location mapping
-                location_map = {
-                    '15330599': 'lodwar', '15510868': 'kapsabet', '15393486': 'bomet', '50260522': 'nakuru',
-                    '50260577': 'savemore', '18010415': 'kisii', '50260971': 'molo', '15580524': 'naivasha',
-                    '18041985': 'rongo', '15580523': 'nyahururu', '15393485': 'kericho', '15510770': 'eldoret',
-                }
-                
-                storage_locs = df['Storage Location'].astype(str).dropna().unique()
-                location = location_map.get(storage_locs[0] if len(storage_locs) > 0 else 'Unknown', 'Unknown').title()
-                
-                # FIXED DATE PROCESSING - Treat as raw strings and parse as DD/MM/YYYY
+
+                line_col = 'LineNum' if 'LineNum' in df.columns else (df.columns[7] if len(df.columns) > 7 else None)
+                if line_col:
+                    df[line_col] = df[line_col].astype(str).str.zfill(2)
+
+                # Smart date column selection
+                doc_counts = df['Document Type Descrw'].value_counts()
+                use_invoice = doc_counts.get('Invoice', 0) >= doc_counts.get('Credit for Returns', 0)
+                date_col = 'Invoice Date' if use_invoice else 'Reference Doc Date'
+                date_col = 'Invoice Date' if use_invoice else 'Reference Doc Date'
+                suffix = 'Inv' if use_invoice else 'Returns'
+
+                # Robust date formatting (handles Excel serials + strings)
                 for dc in ['Invoice Date', 'Reference Doc Date']:
                     if dc in df.columns:
-                        print(f"DEBUG: Processing {dc} column as raw strings")
-                        
-                        def parse_and_format_date(raw_date):
-                            if pd.isna(raw_date) or raw_date in ['', '0', 'NaN', 'NaT']:
-                                return '0'
-                            
-                            # If it's already a string in DD/MM/YYYY format, use it as is
-                            if isinstance(raw_date, str):
-                                # Check if it's already in DD/MM/YYYY format
-                                if '/' in raw_date:
-                                    parts = raw_date.split('/')
-                                    if len(parts) == 3:
-                                        day, month, year = parts
-                                        # Validate it's DD/MM/YYYY (first part <= 31, second part <= 12)
-                                        if (day.isdigit() and month.isdigit() and year.isdigit() and
-                                            len(day) == 2 and len(month) == 2 and len(year) == 4 and
-                                            int(day) <= 31 and int(month) <= 12):
-                                            return f"{day}/{month}/{year}"
-                                
-                                # If it's in MM/DD/YYYY format, convert to DD/MM/YYYY
-                                if '/' in raw_date:
-                                    parts = raw_date.split('/')
-                                    if len(parts) == 3:
-                                        month, day, year = parts
-                                        if (month.isdigit() and day.isdigit() and year.isdigit() and
-                                            len(month) == 2 and len(day) == 2 and len(year) == 4 and
-                                            int(month) <= 12 and int(day) <= 31):
-                                            return f"{day}/{month}/{year}"
-                                
-                                # If it's in YYYY-MM-DD format (pandas default), convert to DD/MM/YYYY
-                                if '-' in raw_date:
-                                    parts = raw_date.split('-')
-                                    if len(parts) == 3:
-                                        year, month, day = parts
-                                        if (year.isdigit() and month.isdigit() and day.isdigit() and
-                                            len(year) == 4 and len(month) == 2 and len(day) == 2 and
-                                            int(month) <= 12 and int(day) <= 31):
-                                            return f"{day}/{month}/{year}"
-                            
-                            # If we can't parse it, return as is (will be '0' if invalid)
-                            return str(raw_date)
-                        
-                        # Apply the parsing and formatting
-                        df[dc] = df[dc].apply(parse_and_format_date)
-                        
-                        # Debug final output
-                        final_sample = df[dc].head(3).tolist()
-                        print(f"DEBUG: Final formatted {dc}: {final_sample}")
-                
-                # Get date for filename - use first valid date
-                if date_col in df.columns:
-                    # Find first valid DD/MM/YYYY date for filename
-                    valid_dates = []
-                    for date_str in df[date_col]:
-                        if (date_str != '0' and '/' in date_str and 
-                            len(date_str.split('/')) == 3):
-                            day, month, year = date_str.split('/')
-                            if (day.isdigit() and month.isdigit() and year.isdigit() and
-                                len(year) == 4):
-                                valid_dates.append(f"{year}{month}{day}")
-                                break
-                    
-                    if valid_dates:
-                        date_str = valid_dates[0]
-                    else:
+                        # Excel serial numbers
+                        numeric = pd.to_numeric(df[dc], errors='coerce')
+                        mask = numeric.notna()
+                        if mask.any():
+                            df.loc[mask, dc] = pd.to_datetime(numeric[mask], unit='D', origin='1899-12-30').dt.strftime('%d/%m/%Y')
+
+                        # String dates
+                        df[dc] = pd.to_datetime(df[dc], dayfirst=True, errors='coerce').dt.strftime('%d/%m/%Y')
+                        df[dc] = df[dc].fillna('0')
+
+                # Filename date
+                valid_date = df[date_col][df[date_col] != '0'].iloc[0] if not df[date_col][df[date_col] != '0'].empty else None
+                if valid_date and valid_date != '0':
+                    try:
+                        date_str = datetime.strptime(valid_date, '%d/%m/%Y').strftime('%Y%m%d')
+                    except:
                         date_str = datetime.now().strftime('%Y%m%d')
                 else:
                     date_str = datetime.now().strftime('%Y%m%d')
-                
-                csv_filename = f"UKL_{location}{date_str}{suffix}.csv"
-                
-                # Write to CSV in ZIP
-                csv_buffer = io.StringIO()
-                df.to_csv(csv_buffer, index=False, header=False, quoting=3, na_rep='')
-                csv_content = csv_buffer.getvalue().encode('utf-8')
-                zip_file.writestr(csv_filename, csv_content)
-                processed_files += 1
-                
-                print(f"SUCCESS: Processed {filename} -> {csv_filename}")
-                
+
+                loc_code = df['Storage Location'].dropna().astype(str).iloc[0] if not df['Storage Location'].dropna().empty else ''
+                location = location_map.get(loc_code, 'Unknown').title()
+
+                csv_name = f"UKL_{location}{date_str}{suffix}.csv"
+
+                buffer = io.StringIO()
+                df.to_csv(buffer, index=False, header=False, quoting=csv.QUOTE_NONE, escapechar='\\', na_rep='')
+                zf.writestr(csv_name, buffer.getvalue().encode('utf-8-sig'))
+
+                processed_count += 1
+                print(f"SUCCESS: {orig_filename} → {csv_name}")
+
             except Exception as e:
-                print(f"ERROR processing {filename}: {str(e)}")
-                import traceback
-                print(f"TRACEBACK: {traceback.format_exc()}")
-                error_files.append(f"{filename}: {str(e)}")
-                continue
+                error_msg = f"FILE: {orig_filename}\nERROR: {str(e)}\n"
+                error_msg += f"TRACEBACK:\n{traceback.format_exc()}\n"
+                error_msg += "-" * 60 + "\n"
+                errors.append(error_msg)
+                print(f"FAILED: {orig_filename} → {e}")
+
             finally:
                 if os.path.exists(filepath):
-                    os.remove(filepath)
-    
-    # Clean up session
-    if session_id in sessions:
-        del sessions[session_id]
-    
-    # Clean up temp folder if empty
-    if os.path.exists(app.config['UPLOAD_FOLDER']) and not os.listdir(app.config['UPLOAD_FOLDER']):
-        try:
-            os.rmdir(app.config['UPLOAD_FOLDER'])
-        except OSError:
-            pass
-    
-    if processed_files > 0:
-        error_summary = "_with_warnings" if error_files else ""
-        zip_buffer.seek(0)
-        return send_file(
-            zip_buffer,
-            as_attachment=True,
-            download_name=f'Processed_Files{error_summary}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip',
-            mimetype='application/zip'
-        )
-    else:
-        error_msg = "No valid data found after processing."
-        if error_files:
-            error_msg += f" Errors: {'; '.join(error_files)}"
-        return error_msg, 400
+                    try:
+                        os.remove(filepath)
+                    except:
+                        pass
+
+        # Add error log inside ZIP
+        if errors:
+            summary = "SAP B1 PROCESSING ERROR REPORT\n"
+            summary += f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+            summary += f"Total files: {len(files)} | Success: {processed_count} | Failed: {len(errors)}\n\n"
+            summary += "\n".join(errors)
+            zf.writestr("ERRORS_AND_WARNINGS.txt", summary.encode('utf-8'))
+
+    sessions.pop(session_id, None)
+
+    if processed_count == 0:
+        return "All files failed to process. Check ERRORS_AND_WARNINGS.txt in previous downloads.", 400
+
+    zip_buffer.seek(0)
+    return send_file(
+        zip_buffer,
+        as_attachment=True,
+        download_name=f"UKL_Processed_{datetime.now().strftime('%Y%m%d_%H%M%S')}{'_with_errors' if errors else ''}.zip",
+        mimetype='application/zip'
+    )
 
 @app.errorhandler(413)
 def too_large(e):
-    return "File too large. Maximum size is 50MB.", 413
-
-@app.errorhandler(500)
-def internal_error(error):
-    return "An internal error occurred. Please try again.", 500
+    return "File too large (max 50MB)", 413
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=False)
