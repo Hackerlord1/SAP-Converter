@@ -11,7 +11,6 @@ from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import logging
 import gc
-import psutil
 import signal
 from contextlib import contextmanager
 import queue
@@ -86,10 +85,22 @@ bg_processor = BackgroundProcessor()
 bg_processor.start()
 
 def get_memory_usage():
-    """Get current memory usage in MB"""
+    """Simple memory usage estimation without psutil"""
     try:
-        process = psutil.Process()
-        return process.memory_info().rss / 1024 / 1024
+        # Simple memory monitoring - count active DataFrames and file sizes
+        memory_estimate = 0
+        
+        # Estimate based on active sessions and files
+        for session_id in sessions:
+            session_files = get_session_files(session_id)
+            for filename in session_files:
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                if os.path.exists(filepath):
+                    memory_estimate += os.path.getsize(filepath) / 1024 / 1024  # Add file size in MB
+        
+        # Add base memory estimate
+        memory_estimate += 100  # Base Flask app memory
+        return memory_estimate
     except:
         return 0
 
@@ -116,15 +127,14 @@ def memory_safe_chunk_processing(filepath, chunk_size=5000):
             if len(chunks) % 3 == 0:
                 gc.collect()
             
-            # Check memory usage and reduce chunk size if needed
-            current_memory = get_memory_usage()
-            if current_memory > 512:  # 512MB threshold
+            # Simple memory management based on chunk count
+            if len(chunks) > 10:  # Too many chunks in memory
                 chunk_size = max(1000, chunk_size // 2)
-                logger.warning(f"High memory usage ({current_memory:.1f}MB), reducing chunk size to {chunk_size}")
+                logger.warning(f"Many chunks in memory, reducing chunk size to {chunk_size}")
             
-            # Emergency break if memory gets too high
-            if current_memory > 800:  # 800MB emergency threshold
-                logger.error("Memory threshold exceeded, stopping processing")
+            # Emergency break if processing too many rows
+            if total_rows > 100000:  # Safety limit
+                logger.warning(f"Row limit reached ({total_rows}), stopping chunk processing")
                 break
                 
         # Combine chunks efficiently
@@ -443,10 +453,8 @@ def generate_output_files(session_id, exclude_returns, exclude_invoices):
         orig_name = filename[len(f"{session_id}_"):]
         
         try:
-            # Check available memory before processing each file
-            if get_memory_usage() > 600:  # 600MB threshold
-                logger.warning("Memory high, forcing garbage collection")
-                gc.collect()
+            # Force garbage collection before processing each file
+            gc.collect()
             
             # Add timeout for individual file processing (45 seconds per file)
             with time_limit(45):
@@ -457,7 +465,7 @@ def generate_output_files(session_id, exclude_returns, exclude_invoices):
             if result:
                 output_files.append(result)
                 processed += 1
-                logger.info(f"Successfully processed: {orig_name} (Memory: {get_memory_usage():.1f}MB)")
+                logger.info(f"Successfully processed: {orig_name} (Size: {size//1024//1024}MB)")
                 
         except TimeoutException as e:
             error_msg = f"FILE: {orig_name}\nERROR: Processing timeout - file too large or complex\n"
@@ -503,7 +511,7 @@ def cron_health_check():
         'status': 'healthy', 
         'time': datetime.now().isoformat(),
         'active_sessions': len(sessions),
-        'memory_usage_mb': get_memory_usage()
+        'memory_estimate_mb': get_memory_usage()
     })
 
 @app.route('/')
