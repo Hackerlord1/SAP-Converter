@@ -11,10 +11,10 @@ from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import logging
 import gc
-import signal
-from contextlib import contextmanager
 import queue
 from threading import Thread
+import time
+from contextlib import contextmanager
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -36,16 +36,20 @@ results_store = {}
 class TimeoutException(Exception):
     pass
 
+# Cross-platform timeout solution
+import threading
+
+def timeout_handler():
+    raise TimeoutException("Processing timed out")
+
 @contextmanager
 def time_limit(seconds):
-    def signal_handler(signum, frame):
-        raise TimeoutException(f"Processing timed out after {seconds} seconds")
-    signal.signal(signal.SIGALRM, signal_handler)
-    signal.alarm(seconds)
+    timer = threading.Timer(seconds, timeout_handler)
+    timer.start()
     try:
         yield
     finally:
-        signal.alarm(0)
+        timer.cancel()
 
 class BackgroundProcessor(Thread):
     """Background thread for processing files without timeout"""
@@ -58,6 +62,7 @@ class BackgroundProcessor(Thread):
             try:
                 task_id, session_id, exclude_returns, exclude_invoices = processing_queue.get(timeout=30)
                 try:
+                    logger.info(f"Background processing started for task {task_id}")
                     output_files, processed, errors = generate_output_files(
                         session_id, exclude_returns, exclude_invoices
                     )
@@ -68,7 +73,9 @@ class BackgroundProcessor(Thread):
                         'errors': errors,
                         'completed_at': datetime.now()
                     }
+                    logger.info(f"Background processing completed for task {task_id}: {processed} files processed")
                 except Exception as e:
+                    logger.error(f"Background processing error for task {task_id}: {e}")
                     results_store[task_id] = {
                         'status': 'error',
                         'error': str(e),
@@ -83,26 +90,6 @@ class BackgroundProcessor(Thread):
 # Start background processor
 bg_processor = BackgroundProcessor()
 bg_processor.start()
-
-def get_memory_usage():
-    """Simple memory usage estimation without psutil"""
-    try:
-        # Simple memory monitoring - count active DataFrames and file sizes
-        memory_estimate = 0
-        
-        # Estimate based on active sessions and files
-        for session_id in sessions:
-            session_files = get_session_files(session_id)
-            for filename in session_files:
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                if os.path.exists(filepath):
-                    memory_estimate += os.path.getsize(filepath) / 1024 / 1024  # Add file size in MB
-        
-        # Add base memory estimate
-        memory_estimate += 100  # Base Flask app memory
-        return memory_estimate
-    except:
-        return 0
 
 def memory_safe_chunk_processing(filepath, chunk_size=5000):
     """Process large files in chunks to avoid memory exhaustion"""
@@ -318,6 +305,7 @@ def get_session_files(session_id):
                     files.append(f)
                 else:
                     logger.warning(f"Invalid file found: {filepath}")
+        logger.info(f"Found {len(files)} files for session {session_id}: {files}")
         return files
     except Exception as e:
         logger.error(f"Error getting session files: {e}")
@@ -328,16 +316,13 @@ def safe_file_cleanup(filepath):
     try:
         if os.path.exists(filepath):
             os.remove(filepath)
+            logger.info(f"Cleaned up file: {filepath}")
     except Exception as e:
         logger.error(f"Cleanup failed for {filepath}: {e}")
 
 def validate_upload(files):
-    """Validate upload before processing"""
-    max_files = 5  # Reduce from 10 to 5 for Render
-    max_total_size = 20 * 1024 * 1024  # 20MB total
-    
-    if len(files) > max_files:
-        raise ValueError(f"Too many files. Maximum {max_files} files allowed.")
+    """Validate upload before processing - REMOVED FILE COUNT LIMIT"""
+    max_total_size = 50 * 1024 * 1024  # 50MB total (increased from 20MB)
     
     total_size = 0
     for file in files:
@@ -363,6 +348,8 @@ def process_single_file_memory_safe(filepath, orig_name, exclude_returns, exclud
         '18041985': 'rongo', '15580523': 'nyahururu', '15393485': 'kericho', '15510770': 'eldoret',
     }
     
+    logger.info(f"Processing file: {orig_name}")
+    
     # Check file size to decide processing method
     file_size = os.path.getsize(filepath)
     if file_size > 5 * 1024 * 1024:  # 5MB threshold for chunked processing
@@ -370,6 +357,7 @@ def process_single_file_memory_safe(filepath, orig_name, exclude_returns, exclud
         df = memory_safe_chunk_processing(filepath)
     else:
         # Use normal processing for smaller files
+        logger.info(f"Using normal processing for file: {orig_name} ({file_size//1024}KB)")
         df = pd.read_excel(filepath, engine='openpyxl', dtype=str, keep_default_na=False)
     
     # Validate basic structure
@@ -382,14 +370,22 @@ def process_single_file_memory_safe(filepath, orig_name, exclude_returns, exclud
     # Process quantities and filter
     df = process_quantities(df)
     
-    # Apply exclusions
-    if exclude_returns:
-        df = df[df['Document Type Descrw'] != 'Credit for Returns']
-    if exclude_invoices:
-        df = df[df['Document Type Descrw'] != 'Invoice']
+    # Apply exclusions - but don't exclude everything!
+    original_count = len(df)
+    
+    if exclude_returns and exclude_invoices:
+        # If both are excluded, warn but don't filter - process everything
+        logger.warning(f"Both returns and invoices are excluded, but processing all data for {orig_name}")
+        # Don't apply any filters
+    else:
+        # Apply individual exclusions
+        if exclude_returns:
+            df = df[df['Document Type Descrw'] != 'Credit for Returns']
+        if exclude_invoices:
+            df = df[df['Document Type Descrw'] != 'Invoice']
     
     if df.empty:
-        raise ValueError("No data remaining after filtering")
+        raise ValueError(f"No data remaining after filtering. Original had {original_count} rows.")
     
     # Process various column types
     df = process_numeric_columns(df)
@@ -421,6 +417,7 @@ def process_single_file_memory_safe(filepath, orig_name, exclude_returns, exclud
     df.to_csv(buffer, index=False, header=False, quoting=csv.QUOTE_NONE, escapechar='\\', na_rep='')
     csv_bytes = buffer.getvalue().encode('utf-8-sig')
     
+    logger.info(f"Successfully created: {csv_name} from {original_count} original rows")
     return {
         'name': csv_name,
         'content': csv_bytes,
@@ -429,10 +426,13 @@ def process_single_file_memory_safe(filepath, orig_name, exclude_returns, exclud
 
 def generate_output_files(session_id, exclude_returns, exclude_invoices):
     """Memory-optimized file processing"""
+    logger.info(f"Starting file processing for session: {session_id}")
+    
     files = get_session_files(session_id)
     
     if not files:
-        raise ValueError("No files found for session")
+        logger.error(f"No files found for session: {session_id}")
+        raise ValueError("No uploaded files found for this session")
     
     # Sort files by size (process smaller files first)
     files_with_size = []
@@ -485,6 +485,7 @@ def generate_output_files(session_id, exclude_returns, exclude_invoices):
             error_msg = f"FILE: {orig_name}\nERROR: {e}\n"
             errors.append(error_msg)
             logger.error(f"Processing failed for {orig_name}: {e}")
+            logger.error(traceback.format_exc())
             
         finally:
             # Always clean up temporary file
@@ -501,6 +502,7 @@ def generate_output_files(session_id, exclude_returns, exclude_invoices):
             'type': 'error'
         })
 
+    logger.info(f"File processing completed: {processed} processed, {len(errors)} errors")
     return output_files, processed, errors
 
 @app.route('/cron')
@@ -511,7 +513,7 @@ def cron_health_check():
         'status': 'healthy', 
         'time': datetime.now().isoformat(),
         'active_sessions': len(sessions),
-        'memory_estimate_mb': get_memory_usage()
+        'temp_files': len(os.listdir(app.config['UPLOAD_FOLDER']))
     })
 
 @app.route('/')
@@ -535,9 +537,10 @@ def upload():
     except ValueError as e:
         return jsonify({'error': str(e)}), 400
 
-    preview = 'preview' in request.form
-    exclude_returns = 'exclude_returns' in request.form
-    exclude_invoices = 'exclude_invoices' in request.form
+    # FIXED: Properly check if preview is enabled (only if 'yes' is sent)
+    preview_enabled = request.form.get('preview') == 'yes'
+    exclude_returns = request.form.get('exclude_returns') == 'yes'
+    exclude_invoices = request.form.get('exclude_invoices') == 'yes'
 
     # Memory-aware decision making
     total_size = 0
@@ -547,53 +550,60 @@ def upload():
         file.seek(0)
     
     # Use async processing for larger uploads
-    use_async = (len(valid_files) > 3 or total_size > 10 * 1024 * 1024)  # 10MB threshold
+    use_async = (len(valid_files) > 10 or total_size > 20 * 1024 * 1024)  # Increased threshold
 
     session_id = str(uuid.uuid4())
     sessions[session_id] = {
         'created': datetime.now(),
         'exclude_returns': exclude_returns,
-        'exclude_invoices': exclude_invoices
+        'exclude_invoices': exclude_invoices,
+        'file_count': len(valid_files)
     }
 
-    saved_files = []
-    previews = {}
+    logger.info(f"New session created: {session_id} with {len(valid_files)} files, total size: {total_size//1024}KB, use_async: {use_async}, preview: {preview_enabled}, exclude_returns: {exclude_returns}, exclude_invoices: {exclude_invoices}")
 
+    # Save files
     for file in valid_files:
         safe_name = secure_filename(file.filename)
-        if not safe_name:
-            continue
-            
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{session_id}_{safe_name}")
-        file.save(filepath)
-        saved_files.append((safe_name, filepath))
+        if safe_name:
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{session_id}_{safe_name}")
+            file.save(filepath)
+            logger.info(f"Saved file: {filepath}")
 
-        if preview:
-            try:
-                dfp = pd.read_excel(filepath, engine='openpyxl', dtype=str, nrows=5)
-                previews[safe_name] = {
-                    'html': dfp.head(5).to_html(classes='table table-sm', index=False, border=0),
-                    'columns': list(dfp.columns)
-                }
-            except Exception as e:
-                logger.error(f"Preview error for {safe_name}: {e}")
-                previews[safe_name] = {
-                    'html': f"<p class='text-danger'>Preview error: {str(e)}</p>",
-                    'columns': []
-                }
-
-    if preview:
+    # FIXED: Only return preview page if preview is explicitly enabled
+    if preview_enabled:
+        logger.info(f"Preview mode enabled for session {session_id}")
+        previews = {}
+        for file in valid_files:
+            safe_name = secure_filename(file.filename)
+            if safe_name:
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], f"{session_id}_{safe_name}")
+                try:
+                    dfp = pd.read_excel(filepath, engine='openpyxl', dtype=str, nrows=5)
+                    previews[safe_name] = {
+                        'html': dfp.head(5).to_html(classes='table table-sm', index=False, border=0),
+                        'columns': list(dfp.columns)
+                    }
+                except Exception as e:
+                    logger.error(f"Preview error for {safe_name}: {e}")
+                    previews[safe_name] = {
+                        'html': f"<p class='text-danger'>Preview error: {str(e)}</p>",
+                        'columns': []
+                    }
+        
         return render_template('preview.html',
                                previews=previews.items(),
                                session_id=session_id,
                                exclude_returns=exclude_returns,
                                exclude_invoices=exclude_invoices)
 
-    # Choose processing method based on size
+    # Choose processing method based on size (NORMAL PROCESSING - NO PREVIEW)
     if use_async:
+        logger.info(f"Using async processing for session {session_id}")
         # Redirect to async processing
         return redirect(url_for('async_process_files', session_id=session_id))
     else:
+        logger.info(f"Using direct processing for session {session_id}")
         # Use direct processing for small files
         if len(valid_files) == 1:
             return redirect(url_for('download_direct', session_id=session_id))
@@ -603,9 +613,12 @@ def upload():
 @app.route('/async-process/<session_id>')
 def async_process_files(session_id):
     """Async processing endpoint to avoid timeouts"""
+    logger.info(f"Async process requested for session: {session_id}")
     session = sessions.get(session_id)
     if not session:
-        return jsonify({'error': 'Session expired'}), 404
+        logger.error(f"Session not found: {session_id}")
+        cleanup_old_sessions()
+        return "Session expired or invalid", 404
     
     # Create async task
     task_id = str(uuid.uuid4())
@@ -618,6 +631,8 @@ def async_process_files(session_id):
     
     # Clean session immediately since we're processing async
     sessions.pop(session_id, None)
+    
+    logger.info(f"Async task created: {task_id} for session: {session_id}")
     
     return jsonify({
         'task_id': task_id,
@@ -686,94 +701,116 @@ def async_download(task_id):
 @app.route('/process/<session_id>')
 def process_files(session_id):
     """Process uploaded files and return converted CSVs - for multiple files"""
+    logger.info(f"Process files requested for session: {session_id}")
+    
     session = sessions.get(session_id)
     if not session:
+        logger.error(f"Session not found: {session_id}")
         cleanup_old_sessions()
         return "Session expired or invalid", 404
 
     exclude_returns = session.get('exclude_returns', False)
     exclude_invoices = session.get('exclude_invoices', False)
 
-    # Generate all output files
-    output_files, processed, errors = generate_output_files(session_id, exclude_returns, exclude_invoices)
+    logger.info(f"Processing session {session_id} with exclude_returns={exclude_returns}, exclude_invoices={exclude_invoices}")
 
-    # Clean session only after processing
-    sessions.pop(session_id, None)
+    try:
+        # Generate all output files
+        output_files, processed, errors = generate_output_files(session_id, exclude_returns, exclude_invoices)
 
-    if processed == 0:
-        return "All files failed to process. Check the error log for details.", 400
+        # Clean session only after processing
+        sessions.pop(session_id, None)
 
-    # Get only CSV files for decision making
-    csv_files = [f for f in output_files if f['type'] == 'csv']
-    
-    # DEBUG: Log what files we have
-    logger.info(f"Output files: {[f['name'] for f in output_files]}")
-    logger.info(f"CSV files: {[f['name'] for f in csv_files]}")
-    
-    # For multiple files, always return as ZIP
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for file_info in output_files:
-            zf.writestr(file_info['name'], file_info['content'])
+        if processed == 0:
+            logger.error(f"No files processed for session {session_id}")
+            return "All files failed to process. Check the error log for details.", 400
 
-    zip_buffer.seek(0)
-    logger.info(f"Downloading ZIP with {len(output_files)} files")
-    
-    # For ZIP files, set proper headers
-    zip_filename = f"UKL_Processed_{datetime.now():%Y%m%d_%H%M%S}.zip"
-    response = send_file(
-        zip_buffer,
-        as_attachment=True,
-        download_name=zip_filename,
-        mimetype='application/zip'
-    )
-    
-    # Add cache control headers
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    
-    return response
+        # Get only CSV files for decision making
+        csv_files = [f for f in output_files if f['type'] == 'csv']
+        
+        logger.info(f"Output files: {[f['name'] for f in output_files]}")
+        logger.info(f"CSV files: {[f['name'] for f in csv_files]}")
+        
+        # For multiple files, always return as ZIP
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for file_info in output_files:
+                zf.writestr(file_info['name'], file_info['content'])
+
+        zip_buffer.seek(0)
+        logger.info(f"Downloading ZIP with {len(output_files)} files")
+        
+        # For ZIP files, set proper headers
+        zip_filename = f"UKL_Processed_{datetime.now():%Y%m%d_%H%M%S}.zip"
+        response = send_file(
+            zip_buffer,
+            as_attachment=True,
+            download_name=zip_filename,
+            mimetype='application/zip'
+        )
+        
+        # Add cache control headers
+        response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in process_files for session {session_id}: {e}")
+        logger.error(traceback.format_exc())
+        return f"Error processing files: {str(e)}", 500
 
 @app.route('/download/<session_id>')
 def download_direct(session_id):
     """Direct download endpoint with guaranteed filename handling - for single files"""
+    logger.info(f"Direct download requested for session: {session_id}")
+    
     session = sessions.get(session_id)
     if not session:
+        logger.error(f"Session not found: {session_id}")
         return "Session expired or invalid", 404
 
     exclude_returns = session.get('exclude_returns', False)
     exclude_invoices = session.get('exclude_invoices', False)
 
-    # Generate all output files
-    output_files, processed, errors = generate_output_files(session_id, exclude_returns, exclude_invoices)
+    try:
+        # Generate all output files
+        output_files, processed, errors = generate_output_files(session_id, exclude_returns, exclude_invoices)
 
-    # Clean session
-    sessions.pop(session_id, None)
+        # Clean session
+        sessions.pop(session_id, None)
 
-    if processed == 0:
-        return "All files failed to process.", 400
+        if processed == 0:
+            logger.error(f"No files processed for session {session_id}")
+            return "All files failed to process.", 400
 
-    csv_files = [f for f in output_files if f['type'] == 'csv']
-    if len(csv_files) >= 1:
-        # Use the first CSV file for single file download
-        csv_file = csv_files[0]
-        logger.info(f"Direct download: {csv_file['name']}")
+        csv_files = [f for f in output_files if f['type'] == 'csv']
+        if len(csv_files) >= 1:
+            # Use the first CSV file for single file download
+            csv_file = csv_files[0]
+            logger.info(f"Direct download: {csv_file['name']}")
+            
+            # Return with explicit filename in headers
+            return Response(
+                csv_file['content'],
+                mimetype='text/csv',
+                headers={
+                    'Content-Disposition': f'attachment; filename="{csv_file["name"]}"',
+                    'Content-Type': 'text/csv; charset=utf-8',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache', 
+                    'Expires': '0'
+                }
+            )
         
-        # Return with explicit filename in headers
-        return Response(
-            csv_file['content'],
-            mimetype='text/csv',
-            headers={
-                'Content-Disposition': f'attachment; filename="{csv_file["name"]}"',
-                'Content-Type': 'text/csv; charset=utf-8',
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache', 
-                'Expires': '0'
-            }
-        )
-    
-    return "No CSV files generated", 500
+        logger.error(f"No CSV files generated for session {session_id}")
+        return "No CSV files generated", 500
+        
+    except Exception as e:
+        logger.error(f"Error in download_direct for session {session_id}: {e}")
+        logger.error(traceback.format_exc())
+        return f"Error downloading file: {str(e)}", 500
 
 @app.errorhandler(413)
 def too_large(e):

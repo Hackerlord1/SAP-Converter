@@ -8,134 +8,184 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
+            --primary: #7c3aed;
+            --primary-dark: #6d28d9;
+            --primary-light: #8b5cf6;
             --success: #10b981;
             --success-dark: #059669;
-            --gray-50: #f9fafb;
-            --gray-100: #f3f4f6;
-            --gray-200: #e5e7eb;
-            --gray-600: #4b5563;
-            --gray-700: #374151;
-            --gray-900: #111827;
+            --gray-50: #fafafa;
+            --gray-100: #f4f4f5;
+            --gray-200: #e4e4e7;
+            --gray-300: #d4d4d8;
+            --gray-600: #52525b;
+            --gray-700: #3f3f46;
+            --gray-900: #18181b;
         }
         
         body {
-            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
             min-height: 100vh;
             font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
             color: var(--gray-900);
-            padding: 1rem;
+            padding: 2rem 1rem;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
         }
         
         .main-container {
-            max-width: 1000px;
-            margin: 2rem auto;
+            max-width: 600px;
+            width: 100%;
+            margin: 0 auto;
         }
         
-        .header-card {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
-            border: 1px solid var(--gray-200);
-            overflow: hidden;
+        .logo-header {
+            text-align: center;
             margin-bottom: 2rem;
         }
         
-        .header-content {
+        .logo {
+            width: 80px;
+            height: 80px;
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 1rem;
+            box-shadow: 0 8px 25px rgba(124, 58, 237, 0.3);
+        }
+        
+        .logo i {
+            font-size: 2.5rem;
             color: white;
-            padding: 2.5rem 2rem;
-            text-align: center;
         }
         
-        .header-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-            opacity: 0.9;
-        }
-        
-        .header-content h1 {
-            font-size: 2.2rem;
+        .logo-header h1 {
+            font-size: 1.8rem;
             font-weight: 700;
+            color: var(--gray-900);
             margin-bottom: 0.5rem;
         }
         
-        .header-content .lead {
-            font-size: 1.1rem;
-            opacity: 0.95;
-            font-weight: 400;
+        .logo-header p {
+            color: var(--gray-600);
+            font-size: 0.95rem;
+            margin: 0;
         }
         
-        .content-card {
+        .main-card {
             background: white;
-            border-radius: 16px;
-            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.06);
+            border-radius: 20px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
             border: 1px solid var(--gray-200);
-            padding: 2rem;
+            overflow: hidden;
         }
         
-        .upload-section {
-            margin-bottom: 2rem;
+        .card-section {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+        }
+        
+        .card-section:last-child {
+            border-bottom: none;
+        }
+        
+        .section-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .section-title i {
+            color: var(--primary);
+            font-size: 1.2rem;
         }
         
         .upload-area {
-            border: 3px dashed var(--gray-200);
+            border: 2px dashed var(--gray-300);
             border-radius: 16px;
-            padding: 3rem 2rem;
+            padding: 2rem 1.5rem;
             text-align: center;
             transition: all 0.3s ease;
             background: var(--gray-50);
             cursor: pointer;
+            margin-bottom: 1rem;
         }
         
         .upload-area:hover {
             border-color: var(--primary);
-            background: #f8faff;
+            background: #faf5ff;
             transform: translateY(-2px);
         }
         
         .upload-area.dragover {
             border-color: var(--success);
             background: #f0fdf9;
-            transform: scale(1.02);
         }
         
         .upload-icon {
-            font-size: 3rem;
+            font-size: 2.5rem;
             color: var(--primary);
-            margin-bottom: 1.5rem;
+            margin-bottom: 1rem;
         }
         
-        .upload-area:hover .upload-icon {
-            color: var(--primary-dark);
+        .upload-area h4 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--gray-900);
+            margin-bottom: 0.5rem;
+        }
+        
+        .upload-area p {
+            color: var(--gray-600);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        
+        .browse-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.5rem;
+            border-radius: 10px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .browse-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
         }
         
         .file-list {
-            max-height: 200px;
+            max-height: 150px;
             overflow-y: auto;
             border-radius: 12px;
-            padding: 1.5rem;
+            padding: 1rem;
             background: var(--gray-50);
             border: 1px solid var(--gray-200);
-            margin-top: 1rem;
         }
         
         .file-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 0.75rem 1rem;
+            padding: 0.6rem 0.8rem;
             border-bottom: 1px solid var(--gray-200);
             background: white;
             border-radius: 8px;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.4rem;
             transition: all 0.2s ease;
         }
         
         .file-item:hover {
             background: var(--gray-50);
-            transform: translateX(4px);
         }
         
         .file-item:last-child {
@@ -146,33 +196,35 @@
         .file-info {
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.6rem;
             flex: 1;
         }
         
         .file-icon {
             color: var(--success);
-            font-size: 1.2rem;
+            font-size: 1rem;
         }
         
         .file-name {
             font-weight: 500;
             color: var(--gray-700);
+            font-size: 0.9rem;
         }
         
         .file-size {
             color: var(--gray-600);
-            font-size: 0.875rem;
+            font-size: 0.8rem;
         }
         
         .remove-btn {
             background: none;
             border: none;
-            color: var(--gray-600);
+            color: var(--gray-500);
             cursor: pointer;
-            padding: 0.25rem 0.5rem;
+            padding: 0.2rem 0.4rem;
             border-radius: 4px;
             transition: all 0.2s ease;
+            font-size: 0.9rem;
         }
         
         .remove-btn:hover {
@@ -180,35 +232,45 @@
             color: #dc2626;
         }
         
-        .options-section {
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 0.8rem;
+        }
+        
+        .option-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem 1rem;
             background: var(--gray-50);
             border-radius: 12px;
-            padding: 1.5rem;
-            margin-bottom: 2rem;
-        }
-        
-        .option-group {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-        }
-        
-        .option-card {
-            background: white;
             border: 1px solid var(--gray-200);
-            border-radius: 12px;
-            padding: 1.25rem;
             transition: all 0.2s ease;
         }
         
-        .option-card:hover {
+        .option-item:hover {
             border-color: var(--primary);
-            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.1);
+            background: #faf5ff;
         }
         
-        .option-card.active {
-            border-color: var(--success);
-            background: #f0fdf9;
+        .option-label {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            font-weight: 500;
+            color: var(--gray-700);
+            font-size: 0.95rem;
+        }
+        
+        .option-label i {
+            color: var(--primary);
+            font-size: 1.1rem;
+            width: 20px;
+        }
+        
+        .form-switch {
+            margin: 0;
         }
         
         .form-check-input:checked {
@@ -216,54 +278,63 @@
             border-color: var(--success);
         }
         
-        .form-check-label {
-            font-weight: 500;
-            color: var(--gray-700);
-            cursor: pointer;
-        }
-        
-        .stats-card {
+        .stats-section {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
             background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
             color: white;
-            border-radius: 12px;
-            padding: 1.5rem;
+        }
+        
+        .file-count {
             text-align: center;
         }
         
-        .stats-number {
-            font-size: 2.5rem;
+        .count-number {
+            font-size: 2rem;
             font-weight: 700;
-            margin-bottom: 0.25rem;
+            line-height: 1;
         }
         
-        .stats-label {
+        .count-label {
+            font-size: 0.85rem;
             opacity: 0.9;
-            font-size: 0.9rem;
         }
         
         .process-btn {
-            background: linear-gradient(135deg, var(--success) 0%, var(--success-dark) 100%);
+            background: white;
+            color: var(--primary);
             border: none;
-            color: white;
-            padding: 1rem 2rem;
-            font-size: 1.1rem;
+            padding: 0.8rem 2rem;
+            font-size: 1rem;
             font-weight: 600;
             border-radius: 12px;
             transition: all 0.3s ease;
-            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
-            width: 100%;
+            box-shadow: 0 4px 15px rgba(255, 255, 255, 0.2);
+            flex: 1;
         }
         
         .process-btn:hover {
             transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+            box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3);
         }
         
         .process-btn:disabled {
-            background: var(--gray-400);
+            background: var(--gray-300);
+            color: var(--gray-600);
             transform: none;
             box-shadow: none;
             cursor: not-allowed;
+        }
+        
+        .footer-note {
+            text-align: center;
+            color: var(--gray-600);
+            font-size: 0.8rem;
+            margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--gray-200);
         }
 
         /* Progress Overlay */
@@ -285,21 +356,21 @@
         .progress-modal {
             background: white;
             border-radius: 20px;
-            padding: 2.5rem;
-            max-width: 500px;
+            padding: 2rem;
+            max-width: 400px;
             width: 90%;
             text-align: center;
             box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
         }
         
         .progress-spinner {
-            width: 60px;
-            height: 60px;
-            border: 4px solid #e5e7eb;
-            border-top: 4px solid var(--success);
+            width: 50px;
+            height: 50px;
+            border: 3px solid #e5e7eb;
+            border-top: 3px solid var(--success);
             border-radius: 50%;
             animation: spin 1s linear infinite;
-            margin: 0 auto 1.5rem;
+            margin: 0 auto 1rem;
         }
         
         @keyframes spin {
@@ -308,68 +379,59 @@
         }
         
         .progress-title {
-            font-size: 1.5rem;
+            font-size: 1.3rem;
             font-weight: 600;
             color: var(--gray-900);
             margin-bottom: 1rem;
         }
         
         .progress-bar {
-            height: 8px;
+            height: 6px;
             background: var(--gray-200);
-            border-radius: 4px;
+            border-radius: 3px;
             overflow: hidden;
-            margin: 1.5rem 0;
+            margin: 1rem 0;
         }
         
         .progress-fill {
             height: 100%;
             background: linear-gradient(90deg, var(--success) 0%, var(--success-dark) 100%);
-            border-radius: 4px;
+            border-radius: 3px;
             transition: width 0.4s ease;
             width: 0%;
         }
         
         .progress-text {
-            font-size: 1rem;
+            font-size: 0.9rem;
             color: var(--gray-700);
             margin-bottom: 0.5rem;
         }
         
         .current-file {
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             color: var(--gray-600);
             font-style: italic;
         }
-        
-        .footer-note {
-            text-align: center;
-            color: var(--gray-600);
-            font-size: 0.875rem;
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid var(--gray-200);
-        }
 
-        @media (max-width: 768px) {
+        @media (max-width: 480px) {
+            body {
+                padding: 1rem 0.5rem;
+            }
+            
             .main-container {
-                margin: 1rem auto;
+                max-width: 100%;
             }
             
-            .header-content {
-                padding: 2rem 1rem;
+            .card-section {
+                padding: 1rem;
             }
             
-            .header-content h1 {
-                font-size: 1.8rem;
+            .upload-area {
+                padding: 1.5rem 1rem;
             }
             
-            .content-card {
-                padding: 1.5rem;
-            }
-            
-            .option-group {
-                grid-template-columns: 1fr;
+            .stats-section {
+                padding: 1rem;
             }
         }
     </style>
@@ -392,88 +454,105 @@
     </div>
 
     <div class="main-container">
-        <!-- Header -->
-        <div class="header-card">
-            <div class="header-content">
-                <i class="fas fa-file-excel header-icon"></i>
-                <h1>SAP Excel Converter</h1>
-                <p class="lead">Transform Excel files to SAP-ready CSV format with intelligent naming</p>
+        <!-- Logo Header -->
+        <div class="logo-header">
+            <div class="logo">
+                <i class="fas fa-file-export"></i>
             </div>
+            <h1>SAP Converter</h1>
+            <p>Excel to SAP CSV Format</p>
         </div>
 
-        <!-- Main Content -->
-        <div class="content-card">
+        <!-- Main Card -->
+        <div class="main-card">
             <!-- Upload Section -->
-            <div class="upload-section">
-                <h3 class="mb-3">Upload Excel Files</h3>
-                <div class="upload-area" id="uploadArea">
-                    <label for="fileInput" style="cursor: pointer; display: block;">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <h4 class="mb-2">Drag & Drop Files Here</h4>
-                        <p class="text-muted mb-3">or click to browse (.xlsx, .xls files)</p>
-                        <span class="btn btn-outline-primary">Choose Files</span>
-                    </label>
-                    <input type="file" class="d-none" id="fileInput" name="files" accept=".xlsx,.xls" multiple required>
+            <div class="card-section">
+                <div class="section-title">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                    <span>Upload Files</span>
                 </div>
+                
+                <!-- ACTUAL FORM THAT SUBMITS TO FLASK -->
+                <form id="uploadForm" method="POST" enctype="multipart/form-data" action="/">
+                    <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                        <div style="cursor: pointer;">
+                            <i class="fas fa-file-excel upload-icon"></i>
+                            <h4>Drop Excel files here</h4>
+                            <p>or click to browse (.xlsx, .xls)</p>
+                            <button type="button" class="browse-btn">Choose Files</button>
+                        </div>
+                        <input type="file" class="d-none" id="fileInput" name="files" accept=".xlsx,.xls" multiple required>
+                    </div>
+                    
+                    <!-- Hidden form fields for options -->
+                    <input type="hidden" id="previewField" name="preview">
+                    <input type="hidden" id="excludeReturnsField" name="exclude_returns">
+                    <input type="hidden" id="excludeInvoicesField" name="exclude_invoices">
+                </form>
                 
                 <!-- File List -->
                 <div id="fileListSection" style="display: none;">
-                    <h5 class="mt-4 mb-3">Selected Files</h5>
+                    <div class="section-title">
+                        <i class="fas fa-list"></i>
+                        <span>Selected Files</span>
+                    </div>
                     <div class="file-list" id="fileList"></div>
                 </div>
             </div>
 
             <!-- Options Section -->
-            <div class="options-section">
-                <h4 class="mb-3">Processing Options</h4>
-                <div class="option-group">
-                    <div class="option-card">
+            <div class="card-section">
+                <div class="section-title">
+                    <i class="fas fa-cog"></i>
+                    <span>Processing Options</span>
+                </div>
+                <div class="options-grid">
+                    <div class="option-item">
+                        <label class="option-label" for="previewToggle">
+                            <i class="fas fa-eye"></i>
+                            <span>Enable Preview</span>
+                        </label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="previewToggle" name="preview">
-                            <label class="form-check-label" for="previewToggle">
-                                <i class="fas fa-eye me-2"></i>Enable Preview
-                            </label>
                         </div>
                     </div>
                     
-                    <div class="option-card">
+                    <div class="option-item">
+                        <label class="option-label" for="excludeReturnsToggle">
+                            <i class="fas fa-ban"></i>
+                            <span>Exclude Returns</span>
+                        </label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="excludeReturnsToggle" name="exclude_returns">
-                            <label class="form-check-label" for="excludeReturnsToggle">
-                                <i class="fas fa-ban me-2"></i>Exclude Returns
-                            </label>
                         </div>
                     </div>
                     
-                    <div class="option-card">
+                    <div class="option-item">
+                        <label class="option-label" for="excludeInvoicesToggle">
+                            <i class="fas fa-receipt"></i>
+                            <span>Exclude Invoices</span>
+                        </label>
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="excludeInvoicesToggle" name="exclude_invoices">
-                            <label class="form-check-label" for="excludeInvoicesToggle">
-                                <i class="fas fa-receipt me-2"></i>Exclude Invoices
-                            </label>
                         </div>
                     </div>
                 </div>
             </div>
 
             <!-- Action Section -->
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <button type="submit" class="process-btn" id="submitBtn" disabled>
-                        <i class="fas fa-play-circle me-2"></i>Process & Download
-                    </button>
+            <div class="stats-section">
+                <div class="file-count">
+                    <div class="count-number" id="fileCount">0</div>
+                    <div class="count-label">Files Ready</div>
                 </div>
-                <div class="col-md-4">
-                    <div class="stats-card">
-                        <div class="stats-number" id="fileCount">0</div>
-                        <div class="stats-label">Files Ready</div>
-                    </div>
-                </div>
+                <button type="submit" class="process-btn" id="submitBtn" form="uploadForm" disabled>
+                    <i class="fas fa-play-circle me-2"></i>Process
+                </button>
             </div>
+        </div>
 
-            <div class="footer-note">
-                <i class="fas fa-shield-alt me-2"></i>Files are securely processed and automatically deleted after conversion
-            </div>
+        <div class="footer-note">
+            <i class="fas fa-shield-alt me-2"></i>Files are processed securely and deleted automatically
         </div>
     </div>
 
@@ -490,8 +569,20 @@
         const progressText = document.getElementById('progressText');
         const currentFile = document.getElementById('currentFile');
         const progressTitle = document.getElementById('progressTitle');
+        
+        // Form elements
+        const uploadForm = document.getElementById('uploadForm');
+        const previewField = document.getElementById('previewField');
+        const excludeReturnsField = document.getElementById('excludeReturnsField');
+        const excludeInvoicesField = document.getElementById('excludeInvoicesField');
 
         let currentFiles = [];
+
+        // Make the browse button trigger file input
+        document.querySelector('.browse-btn').addEventListener('click', function(e) {
+            e.stopPropagation(); // Prevent triggering the upload area click
+            fileInput.click();
+        });
 
         // Drag & Drop functionality
         ['dragover', 'dragenter'].forEach(evt => {
@@ -509,15 +600,32 @@
         });
 
         uploadArea.addEventListener('drop', e => {
-            handleFiles(e.dataTransfer.files);
+            e.preventDefault();
+            const files = Array.from(e.dataTransfer.files).filter(f => f.name.match(/\.(xlsx?|xls)$/i));
+            updateFileInput(files);
+            handleFiles(files);
         });
 
         fileInput.addEventListener('change', e => {
-            handleFiles(e.target.files);
+            const files = Array.from(e.target.files).filter(f => f.name.match(/\.(xlsx?|xls)$/i));
+            handleFiles(files);
         });
 
+        function updateFileInput(files) {
+            // Create a new DataTransfer object
+            const dataTransfer = new DataTransfer();
+            
+            // Add files to the DataTransfer object
+            files.forEach(file => {
+                dataTransfer.items.add(file);
+            });
+            
+            // Update the file input with the new files
+            fileInput.files = dataTransfer.files;
+        }
+
         function handleFiles(files) {
-            currentFiles = Array.from(files).filter(f => f.name.match(/\.(xlsx?|xls)$/i));
+            currentFiles = files;
             updateFileList();
         }
 
@@ -555,13 +663,31 @@
 
         window.removeFile = function(index) {
             currentFiles.splice(index, 1);
+            
+            // Update the actual file input
+            updateFileInput(currentFiles);
             updateFileList();
         };
 
-        // Form submission
-        submitBtn.addEventListener('click', async function(e) {
-            e.preventDefault();
-            if (currentFiles.length === 0) return;
+        // Update hidden form fields when checkboxes change
+        document.getElementById('previewToggle').addEventListener('change', function() {
+            previewField.value = this.checked ? 'yes' : '';
+        });
+
+        document.getElementById('excludeReturnsToggle').addEventListener('change', function() {
+            excludeReturnsField.value = this.checked ? 'yes' : '';
+        });
+
+        document.getElementById('excludeInvoicesToggle').addEventListener('change', function() {
+            excludeInvoicesField.value = this.checked ? 'yes' : '';
+        });
+
+        // Form submission - show loading overlay
+        uploadForm.addEventListener('submit', function(e) {
+            if (currentFiles.length === 0) {
+                e.preventDefault();
+                return;
+            }
 
             loadingOverlay.style.display = 'flex';
             progressTitle.textContent = 'Processing Files...';
@@ -569,102 +695,35 @@
             progressFill.style.width = '0%';
             currentFile.textContent = 'Starting conversion...';
 
-            const formData = new FormData();
-            currentFiles.forEach(f => formData.append('files', f));
-            if (document.getElementById('previewToggle').checked) formData.append('preview', 'yes');
-            if (document.getElementById('excludeReturnsToggle').checked) formData.append('exclude_returns', 'yes');
-            if (document.getElementById('excludeInvoicesToggle').checked) formData.append('exclude_invoices', 'yes');
+            // Simulate progress for better UX
+            let processed = 0;
+            const total = currentFiles.length;
 
-            try {
-                const response = await fetch('/', {
-                    method: 'POST',
-                    body: formData
-                });
-
-                if (!response.ok) throw new Error(`Server error: ${response.status}`);
-
-                // Handle preview mode
-                if (document.getElementById('previewToggle').checked) {
-                    const html = await response.text();
-                    document.open();
-                    document.write(html);
-                    document.close();
-                    return;
+            const progressInterval = setInterval(() => {
+                if (processed < total) {
+                    processed++;
+                    const percentage = (processed / total) * 100;
+                    progressText.textContent = `${processed} of ${total} completed`;
+                    currentFile.textContent = `Processing: ${currentFiles[processed-1].name}`;
+                    progressFill.style.width = `${percentage}%`;
+                    
+                    if (processed === total) {
+                        progressTitle.textContent = 'Complete! Downloading...';
+                        progressFill.style.width = '100%';
+                        currentFile.textContent = 'All files processed successfully';
+                    }
                 }
+            }, 800);
 
-                // Simulate progress for better UX
-                let processed = 0;
-                const total = currentFiles.length;
-
-                const progressInterval = setInterval(() => {
-                    if (processed < total) {
-                        processed++;
-                        const percentage = (processed / total) * 100;
-                        progressText.textContent = `${processed} of ${total} completed`;
-                        currentFile.textContent = `Processing: ${currentFiles[processed-1].name}`;
-                        progressFill.style.width = `${percentage}%`;
-                    }
-                }, 800);
-
-                const blob = await response.blob();
+            // Clear interval after form submission (the page will reload/navigate)
+            setTimeout(() => {
                 clearInterval(progressInterval);
-
-                progressTitle.textContent = 'Complete! Downloading...';
-                progressFill.style.width = '100%';
-                currentFile.textContent = 'All files processed successfully';
-
-                setTimeout(() => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    
-                    // Get filename from server response headers - THIS IS THE FIX
-                    let filename;
-                    const contentDisposition = response.headers.get('Content-Disposition');
-                    
-                    if (contentDisposition) {
-                        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
-                        if (filenameMatch) {
-                            filename = filenameMatch[1];
-                            console.log('Filename from header:', filename);
-                        }
-                    }
-                    
-                    // If no filename in header, the server might be redirecting or there's an issue
-                    if (!filename) {
-                        console.warn('No filename found in headers, checking response URL');
-                        // For single file downloads, the server should provide the filename
-                        // If it doesn't, we need to handle this differently
-                        if (currentFiles.length === 1) {
-                            // For single files, let the server handle the naming through the redirect
-                            // We'll use a generic name but this should ideally be fixed server-side
-                            const today = new Date().toISOString().slice(0,10).replace(/-/g, '');
-                            filename = `UKL_Export_${today}.csv`;
-                            console.warn('Using fallback filename:', filename);
-                        } else {
-                            // For multiple files, use zip naming
-                            filename = `UKL_Processed_${new Date().toISOString().slice(0,10).replace(/-/g, '')}.zip`;
-                        }
-                    }
-                    
-                    a.download = filename;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                    
-                    loadingOverlay.style.display = 'none';
-                }, 800);
-
-            } catch (err) {
-                alert('Error processing files: ' + err.message);
-                loadingOverlay.style.display = 'none';
-            }
+            }, 10000); // Safety timeout
         });
 
         // Smooth entrance animation
         document.addEventListener('DOMContentLoaded', () => {
-            const elements = ['.header-card', '.content-card'];
+            const elements = ['.logo-header', '.main-card'];
             elements.forEach((selector, index) => {
                 const element = document.querySelector(selector);
                 if (element) {
