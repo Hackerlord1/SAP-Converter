@@ -11,9 +11,7 @@ from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 import logging
 import gc
-import queue
-from threading import Thread
-import time
+import threading
 from contextlib import contextmanager
 
 # Configure logging
@@ -29,15 +27,8 @@ app.config['ALLOWED_EXTENSIONS'] = {'xlsx', 'xls'}
 os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 sessions = {}
 
-# Background processing setup
-processing_queue = queue.Queue()
-results_store = {}
-
 class TimeoutException(Exception):
     pass
-
-# Cross-platform timeout solution
-import threading
 
 def timeout_handler():
     raise TimeoutException("Processing timed out")
@@ -50,46 +41,6 @@ def time_limit(seconds):
         yield
     finally:
         timer.cancel()
-
-class BackgroundProcessor(Thread):
-    """Background thread for processing files without timeout"""
-    def __init__(self):
-        Thread.__init__(self)
-        self.daemon = True
-        
-    def run(self):
-        while True:
-            try:
-                task_id, session_id, exclude_returns, exclude_invoices = processing_queue.get(timeout=30)
-                try:
-                    logger.info(f"Background processing started for task {task_id}")
-                    output_files, processed, errors = generate_output_files(
-                        session_id, exclude_returns, exclude_invoices
-                    )
-                    results_store[task_id] = {
-                        'status': 'completed',
-                        'output_files': output_files,
-                        'processed': processed,
-                        'errors': errors,
-                        'completed_at': datetime.now()
-                    }
-                    logger.info(f"Background processing completed for task {task_id}: {processed} files processed")
-                except Exception as e:
-                    logger.error(f"Background processing error for task {task_id}: {e}")
-                    results_store[task_id] = {
-                        'status': 'error',
-                        'error': str(e),
-                        'completed_at': datetime.now()
-                    }
-                finally:
-                    processing_queue.task_done()
-                    
-            except queue.Empty:
-                continue
-
-# Start background processor
-bg_processor = BackgroundProcessor()
-bg_processor.start()
 
 def memory_safe_chunk_processing(filepath, chunk_size=5000):
     """Process large files in chunks to avoid memory exhaustion"""
@@ -322,7 +273,7 @@ def safe_file_cleanup(filepath):
 
 def validate_upload(files):
     """Validate upload before processing - REMOVED FILE COUNT LIMIT"""
-    max_total_size = 50 * 1024 * 1024  # 50MB total (increased from 20MB)
+    max_total_size = 50 * 1024 * 1024  # 50MB total
     
     total_size = 0
     for file in files:
@@ -542,16 +493,6 @@ def upload():
     exclude_returns = request.form.get('exclude_returns') == 'yes'
     exclude_invoices = request.form.get('exclude_invoices') == 'yes'
 
-    # Memory-aware decision making
-    total_size = 0
-    for file in valid_files:
-        file.seek(0, 2)
-        total_size += file.tell()
-        file.seek(0)
-    
-    # Use async processing for larger uploads
-    use_async = (len(valid_files) > 10 or total_size > 20 * 1024 * 1024)  # Increased threshold
-
     session_id = str(uuid.uuid4())
     sessions[session_id] = {
         'created': datetime.now(),
@@ -560,7 +501,7 @@ def upload():
         'file_count': len(valid_files)
     }
 
-    logger.info(f"New session created: {session_id} with {len(valid_files)} files, total size: {total_size//1024}KB, use_async: {use_async}, preview: {preview_enabled}, exclude_returns: {exclude_returns}, exclude_invoices: {exclude_invoices}")
+    logger.info(f"New session created: {session_id} with {len(valid_files)} files, preview: {preview_enabled}, exclude_returns: {exclude_returns}, exclude_invoices: {exclude_invoices}")
 
     # Save files
     for file in valid_files:
@@ -597,106 +538,15 @@ def upload():
                                exclude_returns=exclude_returns,
                                exclude_invoices=exclude_invoices)
 
-    # Choose processing method based on size (NORMAL PROCESSING - NO PREVIEW)
-    if use_async:
-        logger.info(f"Using async processing for session {session_id}")
-        # Redirect to async processing
-        return redirect(url_for('async_process_files', session_id=session_id))
+    # REMOVED ASYNC PROCESSING - Always use direct processing
+    logger.info(f"Using direct processing for session {session_id}")
+    # Use direct processing for all files
+    if len(valid_files) == 1:
+        return redirect(url_for('download_direct', session_id=session_id))
     else:
-        logger.info(f"Using direct processing for session {session_id}")
-        # Use direct processing for small files
-        if len(valid_files) == 1:
-            return redirect(url_for('download_direct', session_id=session_id))
-        else:
-            return redirect(url_for('process_files', session_id=session_id))
+        return redirect(url_for('process_files', session_id=session_id))
 
-@app.route('/async-process/<session_id>')
-def async_process_files(session_id):
-    """Async processing endpoint to avoid timeouts"""
-    logger.info(f"Async process requested for session: {session_id}")
-    session = sessions.get(session_id)
-    if not session:
-        logger.error(f"Session not found: {session_id}")
-        cleanup_old_sessions()
-        return "Session expired or invalid", 404
-    
-    # Create async task
-    task_id = str(uuid.uuid4())
-    processing_queue.put((
-        task_id,
-        session_id,
-        session.get('exclude_returns', False),
-        session.get('exclude_invoices', False)
-    ))
-    
-    # Clean session immediately since we're processing async
-    sessions.pop(session_id, None)
-    
-    logger.info(f"Async task created: {task_id} for session: {session_id}")
-    
-    return jsonify({
-        'task_id': task_id,
-        'status': 'processing',
-        'message': 'Files are being processed in background'
-    })
-
-@app.route('/async-status/<task_id>')
-def async_status(task_id):
-    """Check async processing status"""
-    result = results_store.get(task_id)
-    
-    if not result:
-        return jsonify({'status': 'unknown'})
-    
-    if result['status'] == 'completed':
-        # Return download link or results
-        return jsonify({
-            'status': 'completed',
-            'processed': result['processed'],
-            'error_count': len(result['errors']),
-            'download_url': f"/async-download/{task_id}"
-        })
-    
-    return jsonify(result)
-
-@app.route('/async-download/<task_id>')
-def async_download(task_id):
-    """Download results from async processing"""
-    result = results_store.get(task_id)
-    
-    if not result or result['status'] != 'completed':
-        return "Result not available", 404
-    
-    output_files = result['output_files']
-    csv_files = [f for f in output_files if f['type'] == 'csv']
-    
-    if len(csv_files) == 1:
-        # Single file download
-        csv_file = csv_files[0]
-        return Response(
-            csv_file['content'],
-            mimetype='text/csv',
-            headers={'Content-Disposition': f'attachment; filename="{csv_file["name"]}"'}
-        )
-    else:
-        # Multiple files - return as ZIP
-        zip_buffer = io.BytesIO()
-        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
-            for file_info in output_files:
-                zf.writestr(file_info['name'], file_info['content'])
-        
-        zip_buffer.seek(0)
-        
-        # Clean up
-        if task_id in results_store:
-            del results_store[task_id]
-        
-        return send_file(
-            zip_buffer,
-            as_attachment=True,
-            download_name=f"UKL_Processed_{datetime.now():%Y%m%d_%H%M%S}.zip",
-            mimetype='application/zip'
-        )
+# REMOVED all async routes: async-process, async-status, async-download
 
 @app.route('/process/<session_id>')
 def process_files(session_id):
